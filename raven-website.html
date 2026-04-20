@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>R.A.V.E.N — AI Desktop Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&family=Inter:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --black:   #020508;
+      --navy:    #050d1a;
+      --cyan:    #00d4ff;
+      --cyan2:   #00fff7;
+      --purple:  #7c3aed;
+      --purple2: #a855f7;
+      --text:    #c8d8e8;
+      --muted:   #4a6080;
+      --border:  rgba(0,212,255,0.15);
+      --glow:    rgba(0,212,255,0.08);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--black);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ── CUSTOM CURSOR ── */
+    #cursor {
+      position: fixed; width: 8px; height: 8px;
+      background: var(--cyan); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%,-50%);
+      transition: transform 0.1s, background 0.2s;
+      box-shadow: 0 0 12px var(--cyan), 0 0 24px var(--cyan);
+    }
+    #cursor-ring {
+      position: fixed; width: 32px; height: 32px;
+      border: 1px solid rgba(0,212,255,0.5); border-radius: 50%;
+      pointer-events: none; z-index: 9998;
+      transform: translate(-50%,-50%);
+      transition: transform 0.15s ease, width 0.2s, height 0.2s, opacity 0.2s;
+    }
+
+    /* ── GRID BACKGROUND ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ── SCAN LINE ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg, transparent, transparent 2px,
+        rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none; z-index: 0;
+      animation: scanMove 8s linear infinite;
+    }
+    @keyframes scanMove {
+      0%   { background-position: 0 0; }
+      100% { background-position: 0 100px; }
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 60px;
+      background: linear-gradient(180deg, rgba(2,5,8,0.95) 0%, transparent 100%);
+      backdrop-filter: blur(10px);
+    }
+    .nav-logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 18px; font-weight: 900;
+      letter-spacing: 4px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .nav-links { display: flex; gap: 40px; list-style: none; }
+    .nav-links a {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px; color: var(--muted);
+      text-decoration: none; letter-spacing: 2px;
+      text-transform: uppercase;
+      transition: color 0.2s;
+      position: relative;
+    }
+    .nav-links a::after {
+      content: ''; position: absolute; bottom: -4px; left: 0;
+      width: 0; height: 1px; background: var(--cyan);
+      transition: width 0.3s;
+    }
+    .nav-links a:hover { color: var(--cyan); }
+    .nav-links a:hover::after { width: 100%; }
+    .nav-status {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: var(--muted);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+      animation: blink 2s infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── HERO ── */
+    #hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      position: relative; z-index: 1;
+      padding: 120px 40px 80px;
+      text-align: center;
+      overflow: hidden;
+    }
+
+    /* Radial glow behind hero */
+    .hero-glow {
+      position: absolute;
+      width: 800px; height: 800px;
+      border-radius: 50%;
+      background: radial-gradient(circle,
+        rgba(124,58,237,0.12) 0%,
+        rgba(0,212,255,0.06) 40%,
+        transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      animation: heroGlow 6s ease-in-out infinite;
+    }
+    @keyframes heroGlow {
+      0%,100% { transform: translate(-50%,-50%) scale(1); opacity: 0.8; }
+      50%      { transform: translate(-50%,-50%) scale(1.1); opacity: 1; }
+    }
+
+    /* Orbiting ring */
+    .orbit-ring {
+      position: absolute;
+      width: 500px; height: 500px;
+      border-radius: 50%;
+      border: 1px solid rgba(0,212,255,0.08);
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%) rotate(0deg);
+      animation: orbit 20s linear infinite;
+    }
+    .orbit-ring::before {
+      content: '';
+      position: absolute; top: -4px; left: 50%;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 16px var(--cyan);
+      transform: translateX(-50%);
+    }
+    .orbit-ring-2 {
+      width: 700px; height: 700px;
+      border-color: rgba(124,58,237,0.06);
+      animation: orbit 35s linear infinite reverse;
+    }
+    .orbit-ring-2::before { background: var(--purple2); box-shadow: 0 0 16px var(--purple2); }
+    @keyframes orbit { to { transform: translate(-50%,-50%) rotate(360deg); } }
+
+    .hero-tag {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; letter-spacing: 4px;
+      color: var(--cyan); text-transform: uppercase;
+      margin-bottom: 24px;
+      opacity: 0; animation: fadeUp 0.8s 0.2s forwards;
+    }
+
+    .hero-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(56px, 10vw, 110px);
+      font-weight: 900;
+      letter-spacing: -2px;
+      line-height: 0.9;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ffffff 0%, var(--cyan) 50%, var(--purple2) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      opacity: 0; animation: fadeUp 0.8s 0.4s forwards;
+    }
+
+    .hero-subtitle-mono {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px; letter-spacing: 3px;
+      color: var(--muted); margin-bottom: 32px;
+      opacity: 0; animation: fadeUp 0.8s 0.6s forwards;
+    }
+
+    .hero-desc {
+      max-width: 560px;
+      font-size: 17px; line-height: 1.8;
+      color: rgba(200,216,232,0.7);
+      margin-bottom: 56px;
+      opacity: 0; animation: fadeUp 0.8s 0.8s forwards;
+    }
+
+    .hero-desc span { color: var(--cyan); font-weight: 500; }
+
+    .hero-buttons {
+      display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+      opacity: 0; animation: fadeUp 0.8s 1s forwards;
+    }
+
+    .btn-primary {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 40px;
+      background: linear-gradient(135deg, var(--purple), var(--cyan));
+      border: none; border-radius: 4px;
+      color: white; font-family: 'Orbitron', sans-serif;
+      font-size: 13px; font-weight: 700; letter-spacing: 2px;
+      text-decoration: none; cursor: none;
+      position: relative; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 0 30px rgba(124,58,237,0.4);
+    }
+    .btn-primary::before {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 50px rgba(0,212,255,0.4); }
+    .btn-primary:hover::before { opacity: 1; }
+    .btn-primary span { position: relative; z-index: 1; }
+
+    .btn-secondary {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 40px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text); font-family: 'Orbitron', sans-serif;
+      font-size: 13px; font-weight: 600; letter-spacing: 2px;
+      text-decoration: none; cursor: none;
+      transition: border-color 0.2s, color 0.2s, background 0.2s;
+    }
+    .btn-secondary:hover {
+      border-color: var(--cyan); color: var(--cyan);
+      background: rgba(0,212,255,0.05);
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── ROBOT PREVIEW ── */
+    .robot-preview {
+      position: relative;
+      margin: 80px auto 0;
+      width: 280px;
+      opacity: 0; animation: fadeUp 1s 1.2s forwards;
+    }
+    .robot-preview svg { filter: drop-shadow(0 0 30px rgba(0,212,255,0.3)); }
+    .robot-frame {
+      position: absolute; inset: -20px;
+      border: 1px solid rgba(0,212,255,0.1);
+      border-radius: 16px;
+      background: rgba(0,212,255,0.02);
+    }
+    .robot-frame::before, .robot-frame::after {
+      content: ''; position: absolute;
+      width: 8px; height: 8px;
+      border-color: var(--cyan); border-style: solid;
+    }
+    .robot-frame::before { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
+    .robot-frame::after  { bottom: 8px; right: 8px; border-width: 0 1px 1px 0; }
+
+    /* ── STATS BAR ── */
+    .stats-bar {
+      position: relative; z-index: 1;
+      display: flex; justify-content: center; gap: 0;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,212,255,0.02);
+      backdrop-filter: blur(10px);
+      overflow: hidden;
+    }
+    .stat {
+      flex: 1; max-width: 280px;
+      padding: 40px 20px;
+      text-align: center;
+      border-right: 1px solid var(--border);
+      position: relative;
+      transition: background 0.3s;
+    }
+    .stat:last-child { border-right: none; }
+    .stat:hover { background: rgba(0,212,255,0.04); }
+    .stat-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 40px; font-weight: 900;
+      background: linear-gradient(135deg, var(--cyan), var(--purple2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+      display: block; margin-bottom: 8px;
+    }
+    .stat-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px; letter-spacing: 3px;
+      color: var(--muted); text-transform: uppercase;
+    }
+
+    /* ── SECTION BASE ── */
+    section { position: relative; z-index: 1; }
+    .section-tag {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px; letter-spacing: 4px;
+      color: var(--cyan); text-transform: uppercase;
+      margin-bottom: 16px; display: block;
+    }
+    .section-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 700; line-height: 1.1;
+      margin-bottom: 20px;
+      color: white;
+    }
+    .section-title em {
+      font-style: normal;
+      background: linear-gradient(135deg, var(--cyan), var(--purple2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── FEATURES ── */
+    #features { padding: 120px 60px; }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1px;
+      border: 1px solid var(--border);
+      background: var(--border);
+      max-width: 1200px; margin: 60px auto 0;
+    }
+    .feature-card {
+      background: var(--navy);
+      padding: 48px 40px;
+      position: relative; overflow: hidden;
+      transition: background 0.3s;
+    }
+    .feature-card::before {
+      content: ''; position: absolute;
+      top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0; transition: opacity 0.3s;
+    }
+    .feature-card:hover { background: rgba(0,212,255,0.04); }
+    .feature-card:hover::before { opacity: 1; }
+    .feature-icon {
+      width: 48px; height: 48px;
+      border-radius: 8px;
+      background: rgba(0,212,255,0.08);
+      border: 1px solid rgba(0,212,255,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 24px;
+    }
+    .feature-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px; font-weight: 700;
+      letter-spacing: 1px; color: white;
+      margin-bottom: 12px;
+    }
+    .feature-desc {
+      font-size: 14px; line-height: 1.8;
+      color: var(--muted);
+    }
+    .feature-num {
+      position: absolute; top: 24px; right: 24px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: rgba(0,212,255,0.2);
+      letter-spacing: 2px;
+    }
+
+    /* ── HOW IT WORKS ── */
+    #how { padding: 120px 60px; background: rgba(0,212,255,0.01); }
+    .steps { max-width: 800px; margin: 60px auto 0; position: relative; }
+    .steps::before {
+      content: ''; position: absolute;
+      left: 24px; top: 0; bottom: 0; width: 1px;
+      background: linear-gradient(180deg, var(--cyan), var(--purple), transparent);
+    }
+    .step {
+      display: flex; gap: 40px; margin-bottom: 56px;
+      opacity: 0; transform: translateX(-20px);
+      transition: opacity 0.6s, transform 0.6s;
+    }
+    .step.visible { opacity: 1; transform: translateX(0); }
+    .step-num {
+      width: 48px; height: 48px; flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--navy);
+      border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px; font-weight: 700;
+      color: var(--cyan);
+      position: relative; z-index: 1;
+    }
+    .step-content { padding-top: 10px; }
+    .step-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 16px; font-weight: 700;
+      color: white; margin-bottom: 8px;
+    }
+    .step-desc { font-size: 15px; line-height: 1.8; color: var(--muted); }
+    .step-code {
+      margin-top: 12px;
+      padding: 12px 16px;
+      background: rgba(0,0,0,0.4);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px; color: var(--cyan);
+      letter-spacing: 1px;
+    }
+
+    /* ── TERMINAL DEMO ── */
+    #demo { padding: 120px 60px; }
+    .terminal {
+      max-width: 800px; margin: 60px auto 0;
+      background: #010608;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 60px rgba(0,212,255,0.08);
+    }
+    .terminal-bar {
+      padding: 14px 20px;
+      background: rgba(0,212,255,0.04);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .t-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .t-dot-r { background: #ff5f57; }
+    .t-dot-y { background: #ffbd2e; }
+    .t-dot-g { background: #28c840; }
+    .t-title {
+      flex: 1; text-align: center;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: var(--muted); letter-spacing: 2px;
+    }
+    .terminal-body { padding: 32px; min-height: 300px; }
+    .t-line {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px; line-height: 2;
+      opacity: 0;
+      animation: termFade 0.3s forwards;
+    }
+    .t-line.prompt::before { content: '❯ '; color: var(--cyan); }
+    .t-line.response { color: rgba(200,216,232,0.6); padding-left: 16px; }
+    .t-line.success { color: #4ade80; }
+    .t-line.info { color: var(--cyan); }
+    @keyframes termFade { to { opacity: 1; } }
+    .cursor-blink {
+      display: inline-block; width: 8px; height: 14px;
+      background: var(--cyan); vertical-align: middle;
+      animation: cursorBlink 1s infinite;
+    }
+    @keyframes cursorBlink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── DOWNLOAD ── */
+    #download {
+      padding: 120px 60px;
+      text-align: center;
+      background: rgba(124,58,237,0.03);
+      position: relative; overflow: hidden;
+    }
+    #download::before {
+      content: '';
+      position: absolute; width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,58,237,0.1) 0%, transparent 70%);
+      top: 50%; left: 50%; transform: translate(-50%,-50%);
+    }
+    .download-card {
+      position: relative; z-index: 1;
+      display: inline-block;
+      padding: 60px 80px;
+      background: rgba(5,13,26,0.8);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      backdrop-filter: blur(20px);
+      max-width: 600px; width: 100%;
+    }
+    .download-card::before {
+      content: ''; position: absolute;
+      top: 0; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--purple2), var(--cyan), transparent);
+    }
+    .version-tag {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; letter-spacing: 3px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .download-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 32px; font-weight: 900;
+      color: white; margin-bottom: 8px;
+    }
+    .download-sub {
+      font-size: 14px; color: var(--muted);
+      margin-bottom: 40px; line-height: 1.8;
+    }
+    .download-requirements {
+      display: flex; gap: 12px; justify-content: center;
+      flex-wrap: wrap; margin-bottom: 40px;
+    }
+    .req-badge {
+      padding: 6px 14px;
+      background: rgba(0,212,255,0.06);
+      border: 1px solid rgba(0,212,255,0.15);
+      border-radius: 20px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: var(--cyan);
+      letter-spacing: 1px;
+    }
+    .download-btn {
+      display: inline-flex; align-items: center; gap: 12px;
+      padding: 20px 56px;
+      background: linear-gradient(135deg, var(--purple), var(--cyan));
+      border: none; border-radius: 4px;
+      color: white; font-family: 'Orbitron', sans-serif;
+      font-size: 14px; font-weight: 900; letter-spacing: 3px;
+      text-decoration: none; cursor: none;
+      position: relative; overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.3s;
+      box-shadow: 0 0 40px rgba(124,58,237,0.4);
+      width: 100%;
+      justify-content: center;
+    }
+    .download-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 0 60px rgba(0,212,255,0.5);
+    }
+    .download-btn .dl-icon { font-size: 20px; }
+    .coming-soon-note {
+      margin-top: 20px;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: var(--muted); letter-spacing: 2px;
+    }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 60px;
+      border-top: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 20px;
+      position: relative; z-index: 1;
+    }
+    .footer-logo {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 14px; font-weight: 900; letter-spacing: 4px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .footer-copy {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: var(--muted); letter-spacing: 1px;
+    }
+    .footer-links { display: flex; gap: 24px; }
+    .footer-links a {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px; color: var(--muted); letter-spacing: 2px;
+      text-decoration: none; text-transform: uppercase;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover { color: var(--cyan); }
+
+    /* ── FLOATING PARTICLES ── */
+    .particle {
+      position: fixed; width: 2px; height: 2px;
+      border-radius: 50%; background: var(--cyan);
+      pointer-events: none; z-index: 0;
+      opacity: 0;
+      animation: particleFloat linear infinite;
+    }
+    @keyframes particleFloat {
+      0%   { opacity: 0; transform: translateY(0) translateX(0); }
+      10%  { opacity: 0.6; }
+      90%  { opacity: 0.3; }
+      100% { opacity: 0; transform: translateY(-100vh) translateX(var(--dx)); }
+    }
+
+    /* ── GLITCH EFFECT ── */
+    @keyframes glitch {
+      0%,100% { clip-path: inset(0 0 100% 0); }
+      20%      { clip-path: inset(10% 0 60% 0); transform: translateX(-4px); }
+      40%      { clip-path: inset(40% 0 30% 0); transform: translateX(4px); }
+      60%      { clip-path: inset(70% 0 10% 0); transform: translateX(-2px); }
+      80%      { clip-path: inset(20% 0 70% 0); transform: translateX(2px); }
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      nav { padding: 16px 24px; }
+      .nav-links { display: none; }
+      #features, #how, #demo, #download { padding: 80px 24px; }
+      footer { padding: 40px 24px; flex-direction: column; text-align: center; }
+      .download-card { padding: 40px 24px; }
+      .stats-bar { flex-direction: column; }
+      .stat { border-right: none; border-bottom: 1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Cursor -->
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">R.A.V.E.N</div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How It Works</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#download">Download</a></li>
+  </ul>
+  <div class="nav-status">
+    <div class="status-dot"></div>
+    SYSTEMS ONLINE
+  </div>
+</nav>
+
+<!-- Hero -->
+<section id="hero">
+  <div class="hero-glow"></div>
+  <div class="orbit-ring"></div>
+  <div class="orbit-ring orbit-ring-2"></div>
+
+  <div class="hero-tag">// Responsive Adaptive Virtual Engineered Navigator</div>
+  <div class="hero-title">R.A.V.E.N</div>
+  <div class="hero-subtitle-mono">— AI DESKTOP ASSISTANT v1.0 —</div>
+  <p class="hero-desc">
+    Your personal AI companion that lives on your desktop. 
+    <span>Always watching. Always ready.</span> 
+    Voice commands, Gemini AI, task automation — all in one floating robot.
+  </p>
+  <div class="hero-buttons">
+    <a href="https://github.com/Irasri007/raven-ai/releases/download/v1.0.0/RAVEN.Setup.1.0.0.ex" class="btn-primary">
+      <span>↓ DOWNLOAD</span>
+    </a>
+    <a href="#features" class="btn-secondary">EXPLORE →</a>
+  </div>
+
+  <!-- Robot SVG preview -->
+  <div class="robot-preview">
+    <div class="robot-frame"></div>
+    <svg width="280" height="336" viewBox="0 0 210 252" xmlns="http://www.w3.org/2000/svg"
+         style="animation:float 3.2s ease-in-out infinite;">
+      <defs>
+        <radialGradient id="hg" cx="38%" cy="30%" r="65%">
+          <stop offset="0%" stop-color="#ddeeff"/><stop offset="100%" stop-color="#8ab4dc"/></radialGradient>
+        <radialGradient id="bg2" cx="38%" cy="28%" r="65%">
+          <stop offset="0%" stop-color="#d0e8ff"/><stop offset="100%" stop-color="#7aa8d0"/></radialGradient>
+        <radialGradient id="faceG" cx="40%" cy="28%" r="62%">
+          <stop offset="0%" stop-color="#1a1f35"/><stop offset="100%" stop-color="#0a0d1a"/></radialGradient>
+        <radialGradient id="eg" cx="32%" cy="28%" r="62%">
+          <stop offset="0%" stop-color="#66ffff"/><stop offset="100%" stop-color="#0088bb"/></radialGradient>
+        <radialGradient id="cg" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#00d4ff" stop-opacity=".35"/>
+          <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/></radialGradient>
+        <filter id="gl"><feGaussianBlur stdDeviation="2.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <ellipse cx="105" cy="20" rx="34" ry="9" fill="none" stroke="url(#eg)" stroke-width="3.5" opacity=".8"/>
+      <ellipse cx="105" cy="88" rx="55" ry="52" fill="url(#hg)"/>
+      <ellipse cx="52" cy="88" rx="11" ry="13" fill="#5b9fd4"/>
+      <ellipse cx="158" cy="88" rx="11" ry="13" fill="#5b9fd4"/>
+      <rect x="63" y="54" width="84" height="72" rx="24" fill="url(#faceG)"/>
+      <g style="animation:blinkEye 4.5s ease-in-out infinite;transform-origin:87px 84px;">
+        <ellipse cx="87" cy="84" rx="16" ry="16" fill="url(#eg)" filter="url(#gl)"/>
+        <ellipse cx="87" cy="84" rx="10" ry="10" fill="#002233"/>
+        <ellipse cx="87" cy="84" rx="6" ry="6" fill="url(#eg)"/>
+        <ellipse cx="83" cy="80" rx="2.5" ry="2.5" fill="white" opacity=".75"/>
+      </g>
+      <g style="animation:blinkEye 4.5s ease-in-out infinite .12s;transform-origin:123px 84px;">
+        <ellipse cx="123" cy="84" rx="16" ry="16" fill="url(#eg)" filter="url(#gl)"/>
+        <ellipse cx="123" cy="84" rx="10" ry="10" fill="#002233"/>
+        <ellipse cx="123" cy="84" rx="6" ry="6" fill="url(#eg)"/>
+        <ellipse cx="119" cy="80" rx="2.5" ry="2.5" fill="white" opacity=".75"/>
+      </g>
+      <path d="M86 109 Q105 121 124 109" fill="none" stroke="#00ccee" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>
+      <rect x="93" y="138" width="24" height="14" rx="6" fill="#7aaac8"/>
+      <ellipse cx="105" cy="195" rx="48" ry="52" fill="url(#bg2)"/>
+      <circle cx="105" cy="193" r="24" fill="#3a7bd5" opacity=".9"/>
+      <circle cx="105" cy="193" r="19" fill="#2563b0"/>
+      <path d="M98 186 A10 10 0 1 1 112 200" fill="none" stroke="#00d4ff" stroke-width="2.8" stroke-linecap="round"/>
+      <polygon points="112,197 112,204 119,200" fill="#00d4ff"/>
+      <circle cx="105" cy="193" r="26" fill="url(#cg)" style="animation:glowAnim 2.2s ease-in-out infinite;"/>
+      <g style="transform-origin:62px 160px;animation:wave 2.8s ease-in-out infinite;">
+        <ellipse cx="63" cy="168" rx="14.5" ry="23" fill="#8bbbd8" transform="rotate(-16,63,168)"/>
+        <ellipse cx="59" cy="187" rx="13" ry="15" fill="#9dcce8" transform="rotate(-10,59,187)"/>
+        <ellipse cx="55" cy="202" rx="12" ry="10" fill="#b8daf5"/>
+      </g>
+      <ellipse cx="147" cy="168" rx="14.5" ry="23" fill="#8bbbd8" transform="rotate(16,147,168)"/>
+      <ellipse cx="87" cy="247" rx="20" ry="9.5" fill="#4a90d9"/>
+      <ellipse cx="123" cy="247" rx="20" ry="9.5" fill="#4a90d9"/>
+    </svg>
+  </div>
+</section>
+
+<!-- Stats -->
+<div class="stats-bar">
+  <div class="stat">
+    <span class="stat-num" data-target="100">0</span>
+    <span class="stat-label">% Always On Top</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num" data-target="12">0</span>
+    <span class="stat-label">Built-in Commands</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num" data-target="2">0</span>
+    <span class="stat-label">Languages Supported</span>
+  </div>
+  <div class="stat">
+    <span class="stat-num" data-target="0">0</span>
+    <span class="stat-label">Cost to Download</span>
+  </div>
+</div>
+
+<!-- Features -->
+<section id="features">
+  <div style="max-width:1200px;margin:0 auto;">
+    <span class="section-tag">// capabilities</span>
+    <h2 class="section-title">Built Different.<br/><em>Works Different.</em></h2>
+  </div>
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-num">01</div>
+      <div class="feature-icon">🤖</div>
+      <div class="feature-name">Always On Screen</div>
+      <p class="feature-desc">Raven lives in your bottom-right corner — permanently. Always on top of every window, every app, always there.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">02</div>
+      <div class="feature-icon">🎙️</div>
+      <div class="feature-name">Voice Commands</div>
+      <p class="feature-desc">Click the mic on Raven's chest and speak. It listens, understands, and executes — no typing required.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">03</div>
+      <div class="feature-icon">⚡</div>
+      <div class="feature-name">Gemini 2.5 AI</div>
+      <p class="feature-desc">Powered by Google's latest Gemini model. Ask anything — it answers intelligently, in English or Hindi.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">04</div>
+      <div class="feature-icon">🔊</div>
+      <div class="feature-name">Speaks Back</div>
+      <p class="feature-desc">Every response is spoken aloud. Watch Raven's mouth animate as it talks. A real conversation, not just text.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">05</div>
+      <div class="feature-icon">🌐</div>
+      <div class="feature-name">Smart Automation</div>
+      <p class="feature-desc">Open YouTube, search Google, generate images, check weather, manage tasks — all with a single command.</p>
+    </div>
+    <div class="feature-card">
+      <div class="feature-num">06</div>
+      <div class="feature-icon">🚀</div>
+      <div class="feature-name">Auto Startup</div>
+      <p class="feature-desc">Raven sets itself to launch automatically when Windows starts. It's there before you even open anything else.</p>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section id="how">
+  <div style="max-width:1200px;margin:0 auto;">
+    <span class="section-tag">// installation</span>
+    <h2 class="section-title">Up and Running<br/><em>In 3 Steps.</em></h2>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">01</div>
+      <div class="step-content">
+        <div class="step-title">Download & Extract</div>
+        <p class="step-desc">Download the ZIP file and extract it anywhere on your PC. No complex installation wizard.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">02</div>
+      <div class="step-content">
+        <div class="step-title">Add Your Gemini API Key</div>
+        <p class="step-desc">Open <code style="color:var(--cyan)">Jarvis/app.py</code> and paste your free Gemini API key. Takes 30 seconds — key is free from Google AI Studio.</p>
+        <div class="step-code">GEMINI_API_KEY = "your-key-here"</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">03</div>
+      <div class="step-content">
+        <div class="step-title">Double-Click START_RAVEN.bat</div>
+        <p class="step-desc">That's it. Raven appears in the bottom-right corner of your screen. From now on it starts automatically with Windows.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Terminal Demo -->
+<section id="demo">
+  <div style="max-width:1200px;margin:0 auto;">
+    <span class="section-tag">// in action</span>
+    <h2 class="section-title">See What<br/><em>Raven Can Do.</em></h2>
+  </div>
+  <div class="terminal">
+    <div class="terminal-bar">
+      <div class="t-dot t-dot-r"></div>
+      <div class="t-dot t-dot-y"></div>
+      <div class="t-dot t-dot-g"></div>
+      <div class="t-title">RAVEN — COMMAND INTERFACE</div>
+    </div>
+    <div class="terminal-body" id="terminal-body">
+      <div class="t-line info" style="animation-delay:0.2s">⬡ R.A.V.E.N v1.0 — All systems nominal</div>
+      <div class="t-line info" style="animation-delay:0.5s">⬡ Gemini 2.5 Flash connected ✓</div>
+      <div class="t-line" style="height:16px;animation-delay:0.7s"> </div>
+      <div class="t-line prompt" style="animation-delay:1s">open youtube</div>
+      <div class="t-line response" style="animation-delay:1.5s">Opening YouTube for you! 🎬</div>
+      <div class="t-line" style="height:8px;animation-delay:1.7s"> </div>
+      <div class="t-line prompt" style="animation-delay:2s">what time is it</div>
+      <div class="t-line response" style="animation-delay:2.5s">The current time is 11:42 PM.</div>
+      <div class="t-line" style="height:8px;animation-delay:2.7s"> </div>
+      <div class="t-line prompt" style="animation-delay:3s">explain quantum computing in simple terms</div>
+      <div class="t-line response" style="animation-delay:3.5s">Quantum computing uses qubits that can be 0 and 1 simultaneously,</div>
+      <div class="t-line response" style="animation-delay:3.7s">allowing it to solve complex problems exponentially faster than classical computers.</div>
+      <div class="t-line" style="height:8px;animation-delay:3.9s"> </div>
+      <div class="t-line prompt" style="animation-delay:4.2s">search best cafes in Delhi</div>
+      <div class="t-line response" style="animation-delay:4.7s">Searching Google for: best cafes in Delhi 🔍</div>
+      <div class="t-line" style="height:8px;animation-delay:4.9s"> </div>
+      <div class="t-line success" style="animation-delay:5.2s">⬡ Raven is listening... <span class="cursor-blink"></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- Download -->
+<section id="download">
+  <span class="section-tag" style="display:block;margin-bottom:16px;">// get raven</span>
+  <h2 class="section-title" style="margin-bottom:48px;">Ready To Deploy<br/><em>Your AI?</em></h2>
+  <div class="download-card">
+    <div class="version-tag">VERSION 1.0 — WINDOWS</div>
+    <div class="download-title">R.A.V.E.N</div>
+    <div class="download-sub">
+      Your AI desktop companion. Always on. Always watching.<br/>
+      Requires Python 3.10+ and Node.js 18+
+    </div>
+    <div class="download-requirements">
+      <span class="req-badge">Windows 10/11</span>
+      <span class="req-badge">Python 3.10+</span>
+      <span class="req-badge">Node.js 18+</span>
+      <span class="req-badge">Free Gemini Key</span>
+    </div>
+    <a href="#" class="download-btn">
+      <span class="dl-icon">↓</span>
+      <span>DOWNLOAD FOR WINDOWS</span>
+    </a>
+    <div class="coming-soon-note">// .EXE INSTALLER COMING SOON — ZIP AVAILABLE NOW</div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-logo">R.A.V.E.N</div>
+  <div class="footer-copy">// Built with Python · Electron · Gemini AI</div>
+  <div class="footer-links">
+    <a href="#features">Features</a>
+    <a href="#how">Setup</a>
+    <a href="#download">Download</a>
+  </div>
+</footer>
+
+<style>
+  @keyframes float    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  @keyframes blinkEye { 0%,85%,100%{transform:scaleY(1)} 90%{transform:scaleY(.08)} }
+  @keyframes wave     { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-22deg)} 75%{transform:rotate(12deg)} }
+  @keyframes glowAnim { 0%,100%{opacity:.55} 50%{opacity:1} }
+</style>
+
+<script>
+  // Custom cursor
+  const cur = document.getElementById('cursor');
+  const ring = document.getElementById('cursor-ring');
+  let mx = 0, my = 0, rx = 0, ry = 0;
+
+  document.addEventListener('mousemove', e => {
+    mx = e.clientX; my = e.clientY;
+    cur.style.left = mx + 'px';
+    cur.style.top  = my + 'px';
+  });
+
+  // Smooth ring follow
+  function animRing() {
+    rx += (mx - rx) * 0.12;
+    ry += (my - ry) * 0.12;
+    ring.style.left = rx + 'px';
+    ring.style.top  = ry + 'px';
+    requestAnimationFrame(animRing);
+  }
+  animRing();
+
+  // Ring grows on hover
+  document.querySelectorAll('a, button, .feature-card, .stat').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      ring.style.width  = '60px';
+      ring.style.height = '60px';
+      ring.style.opacity = '0.5';
+    });
+    el.addEventListener('mouseleave', () => {
+      ring.style.width  = '32px';
+      ring.style.height = '32px';
+      ring.style.opacity = '1';
+    });
+  });
+
+  // Floating particles
+  for (let i = 0; i < 30; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.cssText = `
+      left: ${Math.random() * 100}vw;
+      top: ${100 + Math.random() * 20}vh;
+      --dx: ${(Math.random() - 0.5) * 100}px;
+      animation-duration: ${4 + Math.random() * 8}s;
+      animation-delay: ${Math.random() * 8}s;
+      opacity: ${Math.random() * 0.5};
+      width: ${1 + Math.random() * 2}px;
+      height: ${1 + Math.random() * 2}px;
+      background: ${Math.random() > 0.5 ? '#00d4ff' : '#a855f7'};
+    `;
+    document.body.appendChild(p);
+  }
+
+  // Count-up animation for stats
+  function countUp(el, target, suffix) {
+    let current = 0;
+    const step = target / 60;
+    const timer = setInterval(() => {
+      current += step;
+      if (current >= target) { current = target; clearInterval(timer); }
+      el.textContent = (suffix || '') + Math.round(current) + (suffix === '$' ? '' : '');
+    }, 20);
+  }
+
+  // Intersection observer for stats
+  const statsObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        document.querySelectorAll('.stat-num').forEach(el => {
+          const target = parseInt(el.dataset.target);
+          const prefix = target === 0 ? '$' : '';
+          countUp(el, target, prefix);
+        });
+        statsObs.disconnect();
+      }
+    });
+  }, { threshold: 0.5 });
+  statsObs.observe(document.querySelector('.stats-bar'));
+
+  // Step reveal on scroll
+  const stepObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) e.target.classList.add('visible');
+    });
+  }, { threshold: 0.2 });
+  document.querySelectorAll('.step').forEach(s => stepObs.observe(s));
+
+  // Smooth scroll
+  document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      const target = document.querySelector(a.getAttribute('href'));
+      if (target) target.scrollIntoView({ behavior: 'smooth' });
+    });
+  });
+</script>
+</body>
+</html>
