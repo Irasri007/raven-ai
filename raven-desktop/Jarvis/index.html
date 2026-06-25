@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>R.A.V.E.N</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --bg:#0a0e1a; --sidebar-bg:#0d1120;
+      --border:rgba(99,179,237,0.12); --accent:#00d4ff; --accent2:#7c3aed;
+      --text:#e2e8f0; --text-muted:#64748b; --text-dim:#334155;
+      --input-bg:#111827; --hover:#ffffff08;
+    }
+    html,body{height:100%;overflow:hidden;background:var(--bg);}
+    body{font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);}
+
+    /* ── AUTH ── */
+    #auth-screen{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;align-items:center;justify-content:center;}
+    .auth-card{background:#0d1120;border:1px solid var(--border);border-radius:16px;padding:2.2rem 2rem;width:340px;position:relative;overflow:hidden;}
+    .auth-card::before{content:'';position:absolute;top:-60px;right:-60px;width:180px;height:180px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,0.15),transparent 70%);pointer-events:none;}
+    .auth-logo{text-align:center;margin-bottom:1.6rem;}
+    .auth-logo .lt{font-size:26px;font-weight:700;background:linear-gradient(135deg,#00d4ff,#7c3aed);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    .auth-logo .ls{font-size:10px;color:var(--text-muted);letter-spacing:2px;margin-top:4px;}
+    .auth-tabs{display:flex;margin-bottom:1.4rem;background:rgba(255,255,255,0.04);border-radius:8px;padding:3px;}
+    .auth-tab{flex:1;padding:7px;text-align:center;cursor:pointer;font-size:12px;color:var(--text-muted);border:none;background:none;border-radius:6px;font-family:inherit;transition:all .2s;}
+    .auth-tab.active{background:rgba(0,212,255,0.12);color:var(--accent);}
+    .auth-field{margin-bottom:.9rem;}
+    .auth-field label{display:block;font-size:11px;color:var(--text-muted);margin-bottom:5px;}
+    .auth-field input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--text);padding:9px 12px;border-radius:8px;font-size:13px;outline:none;font-family:inherit;transition:border-color .2s;}
+    .auth-field input:focus{border-color:rgba(0,212,255,0.4);}
+    .auth-btn{width:100%;padding:11px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;color:white;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;margin-top:.4rem;font-family:inherit;transition:opacity .2s;}
+    .auth-btn:hover{opacity:.88;} .auth-btn:disabled{opacity:.5;cursor:not-allowed;}
+    .auth-msg{font-size:11px;text-align:center;margin-top:.8rem;min-height:16px;}
+    .auth-msg.error{color:#f87171;} .auth-msg.success{color:#4ade80;}
+
+    /* ── APP LAYOUT ── */
+    .app{display:flex;height:100vh;background:var(--bg);overflow:hidden;}
+
+    /* SIDEBAR */
+    .sidebar{width:248px;flex-shrink:0;background:var(--sidebar-bg);border-right:1px solid var(--border);display:flex;flex-direction:column;height:100%;}
+    .sidebar-top{padding:16px 12px 8px;display:flex;flex-direction:column;gap:4px;}
+    .new-chat-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text);border:1px solid var(--border);background:none;width:100%;text-align:left;font-family:inherit;transition:background .15s;}
+    .new-chat-btn:hover{background:var(--hover);}
+    .sidebar-search{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-muted);background:none;border:none;width:100%;text-align:left;font-family:inherit;}
+    .sidebar-search:hover{background:var(--hover);color:var(--text);}
+    .sidebar-section{padding:8px 16px 4px;font-size:11px;color:var(--text-dim);letter-spacing:.5px;font-weight:600;text-transform:uppercase;}
+    .chat-list{flex:1;overflow-y:auto;padding:0 8px;}
+    .chat-list::-webkit-scrollbar{width:3px;}
+    .chat-list::-webkit-scrollbar-thumb{background:var(--border);}
+    .chat-item{padding:9px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s;}
+    .chat-item:hover{background:var(--hover);color:var(--text);}
+    .chat-item.active{background:rgba(0,212,255,0.07);color:var(--accent);}
+    .sidebar-bottom{padding:12px;border-top:1px solid var(--border);}
+    .user-card{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;}
+    .user-card:hover{background:var(--hover);}
+    .avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#00d4ff);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:white;flex-shrink:0;}
+    .uname{font-size:13px;font-weight:500;color:var(--text);}
+    .uplan{font-size:11px;color:var(--text-muted);}
+    .logout-x{margin-left:auto;background:none;border:none;color:var(--text-dim);cursor:pointer;padding:4px 6px;border-radius:4px;font-size:13px;}
+    .logout-x:hover{color:#f87171;}
+
+    /* MAIN */
+    .main{flex:1;display:flex;flex-direction:column;height:100%;overflow:hidden;}
+    .topbar{height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .topbar-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500;}
+    .live-dot{width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 8px #22c55e;animation:pulse 2s infinite;}
+    .topbar-badge{font-size:10px;padding:3px 10px;border-radius:20px;background:rgba(0,212,255,0.1);color:var(--accent);border:1px solid rgba(0,212,255,0.2);letter-spacing:.5px;}
+
+    /* CENTER / ROBOT */
+    .center-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;overflow:hidden;position:relative;}
+    .center-area::before{content:'';position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,0.04) 0%,transparent 70%);pointer-events:none;}
+    .speech-box{background:rgba(15,23,42,0.9);border:1px solid rgba(0,212,255,0.2);border-radius:12px;padding:12px 22px;max-width:420px;min-width:220px;text-align:center;font-size:13px;color:rgba(0,212,255,0.9);letter-spacing:.3px;min-height:44px;display:flex;align-items:center;justify-content:center;position:relative;line-height:1.5;}
+    .speech-box::after{content:'';position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(0,212,255,0.2);}
+
+    /* INPUT */
+    .input-row{padding:16px 24px 20px;border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;}
+    .input-wrap{display:flex;align-items:center;gap:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:12px;padding:6px 8px 6px 16px;transition:border-color .2s;}
+    .input-wrap:focus-within{border-color:rgba(0,212,255,0.35);}
+    .cmd-inp{flex:1;background:none;border:none;color:var(--text);font-size:14px;outline:none;padding:6px 0;font-family:inherit;}
+    .cmd-inp::placeholder{color:var(--text-dim);}
+    .cmd-inp:disabled{opacity:.5;}
+    .send-btn{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,var(--accent2),var(--accent));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .2s;}
+    .send-btn:hover{opacity:.85;} .send-btn:disabled{opacity:.4;cursor:not-allowed;}
+    .send-btn svg{width:16px;height:16px;}
+    .spinner{width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;}
+
+    .mic-btn{width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,0.06);border:1px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;position:relative;}
+    .mic-btn:hover{background:rgba(0,212,255,0.12);border-color:rgba(0,212,255,0.3);}
+    .mic-btn.listening{background:rgba(239,68,68,0.18);border-color:#ef4444;animation:micPulse 1s ease-in-out infinite;}
+    .mic-btn svg{width:16px;height:16px;}
+    @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.4)}50%{box-shadow:0 0 0 8px rgba(239,68,68,0)}}
+    .voice-status{font-size:11px;color:var(--text-muted);text-align:center;margin-top:6px;min-height:14px;letter-spacing:.3px;}
+    .hidden{display:none!important;}
+
+    /* ANIMATIONS */
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    @keyframes blinkEye{0%,85%,100%{transform:scaleY(1)}90%{transform:scaleY(.08)}}
+    @keyframes wave{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-22deg)}75%{transform:rotate(12deg)}}
+    @keyframes sb1{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+    @keyframes sb2{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.3)}}
+    @keyframes sb3{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(.95)}}
+    @keyframes glow{0%,100%{opacity:.55}50%{opacity:1}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ AUTH SCREEN ══════════════ -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="lt">R.A.V.E.N</div>
+      <div class="ls">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+    </div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Login</button>
+      <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+    </div>
+
+    <!-- LOGIN FORM -->
+    <div id="form-login">
+      <div class="auth-field">
+        <label>Username</label>
+        <input type="text" id="login-user" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/>
+      </div>
+      <button class="auth-btn" id="login-btn" onclick="doLogin()">Initialize Session →</button>
+    </div>
+
+    <!-- REGISTER FORM -->
+    <div id="form-register" class="hidden">
+      <div class="auth-field">
+        <label>Username</label>
+        <input type="text" id="reg-user" placeholder="Choose username" onkeydown="if(event.key==='Enter')doRegister()"/>
+      </div>
+      <div class="auth-field">
+        <label>Email</label>
+        <input type="email" id="reg-email" placeholder="you@email.com" onkeydown="if(event.key==='Enter')doRegister()"/>
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="reg-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doRegister()"/>
+      </div>
+      <button class="auth-btn" id="reg-btn" onclick="doRegister()">Create Account →</button>
+    </div>
+
+    <div class="auth-msg" id="auth-msg"></div>
+  </div>
+</div>
+
+<!-- ══════════════ MAIN APP ══════════════ -->
+<div class="app" id="main-app" style="display:none;">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <button class="new-chat-btn" onclick="newSession()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        New session
+      </button>
+      <button class="sidebar-search" onclick="loadHistory()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        Load history
+      </button>
+    </div>
+    <div class="sidebar-section">Sessions</div>
+    <div class="chat-list" id="chat-list"></div>
+    <div class="sidebar-bottom">
+      <div class="user-card">
+        <div class="avatar" id="user-avatar">JV</div>
+        <div>
+          <div class="uname" id="sidebar-uname">User</div>
+          <div class="uplan">Raven AI</div>
+        </div>
+        <button class="logout-x" onclick="doLogout()" title="Logout">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title"><span class="live-dot"></span>R.A.V.E.N</div>
+      <span class="topbar-badge">ONLINE</span>
+    </div>
+
+    <div class="center-area">
+
+      <!-- SPEECH BUBBLE -->
+      <div class="speech-box" id="speech-box">SYSTEMS ONLINE. AWAITING YOUR COMMAND.</div>
+
+      <!-- ══ ROBOT SVG ══ -->
+      <svg id="robot" width="210" height="252" viewBox="0 0 210 252"
+           xmlns="http://www.w3.org/2000/svg"
+           style="animation:float 3.2s ease-in-out infinite;">
+        <defs>
+          <radialGradient id="hg" cx="38%" cy="30%" r="65%">
+            <stop offset="0%" stop-color="#ddeeff"/>
+            <stop offset="100%" stop-color="#8ab4dc"/>
+          </radialGradient>
+          <radialGradient id="bg2" cx="38%" cy="28%" r="65%">
+            <stop offset="0%" stop-color="#d0e8ff"/>
+            <stop offset="100%" stop-color="#7aa8d0"/>
+          </radialGradient>
+          <radialGradient id="faceG" cx="40%" cy="28%" r="62%">
+            <stop offset="0%" stop-color="#1a1f35"/>
+            <stop offset="100%" stop-color="#0a0d1a"/>
+          </radialGradient>
+          <radialGradient id="eg" cx="32%" cy="28%" r="62%">
+            <stop offset="0%" stop-color="#66ffff"/>
+            <stop offset="100%" stop-color="#0088bb"/>
+          </radialGradient>
+          <radialGradient id="cg" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#00d4ff" stop-opacity=".35"/>
+            <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/>
+          </radialGradient>
+          <filter id="gl">
+            <feGaussianBlur stdDeviation="2.5" result="b"/>
+            <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+
+        <!-- halo -->
+        <ellipse cx="105" cy="20" rx="34" ry="9" fill="none" stroke="url(#eg)" stroke-width="3.5" opacity=".8"/>
+        <ellipse cx="105" cy="20" rx="34" ry="9" fill="none" stroke="white" stroke-width="1" opacity=".3"/>
+
+        <!-- head -->
+        <ellipse cx="105" cy="88" rx="55" ry="52" fill="url(#hg)"/>
+        <ellipse cx="86" cy="65" rx="20" ry="13" fill="white" opacity=".2" transform="rotate(-18,86,65)"/>
+
+        <!-- ear knobs -->
+        <ellipse cx="52" cy="88" rx="11" ry="13" fill="#5b9fd4"/>
+        <ellipse cx="54" cy="88" rx="7.5" ry="9.5" fill="#6eb0e4"/>
+        <ellipse cx="158" cy="88" rx="11" ry="13" fill="#5b9fd4"/>
+        <ellipse cx="156" cy="88" rx="7.5" ry="9.5" fill="#6eb0e4"/>
+
+        <!-- face screen -->
+        <rect x="63" y="54" width="84" height="72" rx="24" fill="url(#faceG)"/>
+        <rect x="69" y="57" width="38" height="20" rx="10" fill="white" opacity=".05"/>
+
+        <!-- left eye -->
+        <g style="animation:blinkEye 4.5s ease-in-out infinite;transform-origin:87px 84px;">
+          <ellipse cx="87" cy="84" rx="16" ry="16" fill="url(#eg)" filter="url(#gl)"/>
+          <ellipse cx="87" cy="84" rx="10" ry="10" fill="#002233"/>
+          <ellipse cx="87" cy="84" rx="6" ry="6" fill="url(#eg)"/>
+          <ellipse cx="83" cy="80" rx="2.5" ry="2.5" fill="white" opacity=".75"/>
+        </g>
+
+        <!-- right eye -->
+        <g style="animation:blinkEye 4.5s ease-in-out infinite .12s;transform-origin:123px 84px;">
+          <ellipse cx="123" cy="84" rx="16" ry="16" fill="url(#eg)" filter="url(#gl)"/>
+          <ellipse cx="123" cy="84" rx="10" ry="10" fill="#002233"/>
+          <ellipse cx="123" cy="84" rx="6" ry="6" fill="url(#eg)"/>
+          <ellipse cx="119" cy="80" rx="2.5" ry="2.5" fill="white" opacity=".75"/>
+        </g>
+
+        <!-- idle smile -->
+        <g id="idle-mouth">
+          <path d="M86 109 Q105 121 124 109" fill="none" stroke="#00ccee" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>
+        </g>
+
+        <!-- speaking bars (hidden by default) -->
+        <g id="speak-mouth" opacity="0">
+          <rect id="sb1" x="82"  y="106" width="5.5" height="13" rx="2.5" fill="#00d4ff" style="transform-origin:84.75px 112.5px;"/>
+          <rect id="sb2" x="90"  y="103" width="5.5" height="17" rx="2.5" fill="#00d4ff" style="transform-origin:92.75px 111.5px;"/>
+          <rect id="sb3" x="98"  y="100" width="5.5" height="20" rx="2.5" fill="#00d4ff" style="transform-origin:100.75px 110px;"/>
+          <rect id="sb4" x="106" y="103" width="5.5" height="17" rx="2.5" fill="#00d4ff" style="transform-origin:108.75px 111.5px;"/>
+          <rect id="sb5" x="114" y="106" width="5.5" height="13" rx="2.5" fill="#00d4ff" style="transform-origin:116.75px 112.5px;"/>
+        </g>
+
+        <!-- neck -->
+        <rect x="93" y="138" width="24" height="14" rx="6" fill="#7aaac8"/>
+        <rect x="96" y="140" width="18" height="10" rx="5" fill="#8bbbd8"/>
+
+        <!-- body -->
+        <ellipse cx="105" cy="195" rx="48" ry="52" fill="url(#bg2)"/>
+        <ellipse cx="86" cy="170" rx="15" ry="10" fill="white" opacity=".2" transform="rotate(-14,86,170)"/>
+
+        <!-- chest circle -->
+        <circle cx="105" cy="193" r="24" fill="#3a7bd5" opacity=".9"/>
+        <circle cx="105" cy="193" r="19" fill="#2563b0"/>
+        <path d="M98 186 A10 10 0 1 1 112 200" fill="none" stroke="#00d4ff" stroke-width="2.8" stroke-linecap="round"/>
+        <polygon points="112,197 112,204 119,200" fill="#00d4ff"/>
+        <circle cx="105" cy="193" r="26" fill="url(#cg)" style="animation:glow 2.2s ease-in-out infinite;"/>
+
+        <!-- belly dots -->
+        <circle cx="92"  cy="222" r="4.5" fill="#4a90d9" opacity=".65"/>
+        <circle cx="105" cy="226" r="4.5" fill="#4a90d9" opacity=".65"/>
+        <circle cx="118" cy="222" r="4.5" fill="#4a90d9" opacity=".65"/>
+
+        <!-- left arm (waving) -->
+        <g style="transform-origin:62px 160px;animation:wave 2.8s ease-in-out infinite;">
+          <ellipse cx="63" cy="168" rx="14.5" ry="23" fill="#8bbbd8" transform="rotate(-16,63,168)"/>
+          <ellipse cx="59" cy="187" rx="13"   ry="15" fill="#9dcce8" transform="rotate(-10,59,187)"/>
+          <ellipse cx="55" cy="202" rx="12"   ry="10" fill="#b8daf5"/>
+          <ellipse cx="48" cy="197" rx="5"    ry="7"  fill="#cce8ff" transform="rotate(-22,48,197)"/>
+          <ellipse cx="46" cy="205" rx="5"    ry="7"  fill="#cce8ff"/>
+          <ellipse cx="53" cy="212" rx="4.5"  ry="6"  fill="#cce8ff"/>
+          <ellipse cx="61" cy="212" rx="4.5"  ry="6"  fill="#cce8ff"/>
+        </g>
+
+        <!-- right arm -->
+        <ellipse cx="147" cy="168" rx="14.5" ry="23" fill="#8bbbd8" transform="rotate(16,147,168)"/>
+        <ellipse cx="151" cy="187" rx="13"   ry="15" fill="#9dcce8" transform="rotate(10,151,187)"/>
+        <ellipse cx="155" cy="202" rx="12"   ry="10" fill="#b8daf5"/>
+
+        <!-- legs -->
+        <ellipse cx="89"  cy="242" rx="17" ry="13" fill="#7aaac8"/>
+        <ellipse cx="121" cy="242" rx="17" ry="13" fill="#7aaac8"/>
+
+        <!-- feet -->
+        <ellipse cx="87"  cy="247" rx="20" ry="9.5" fill="#4a90d9"/>
+        <ellipse cx="123" cy="247" rx="20" ry="9.5" fill="#4a90d9"/>
+        <ellipse cx="83"  cy="244" rx="11" ry="5"   fill="#6eb0e4" opacity=".55"/>
+        <ellipse cx="119" cy="244" rx="11" ry="5"   fill="#6eb0e4" opacity=".55"/>
+
+        <!-- ground shadow -->
+        <ellipse cx="105" cy="258" rx="48" ry="7" fill="rgba(0,100,200,0.12)"/>
+      </svg>
+
+    </div><!-- end center-area -->
+
+    <!-- INPUT BAR -->
+    <div class="input-row">
+      <div class="input-wrap">
+        <input class="cmd-inp" id="cmd-inp"
+               placeholder="Ask anything..."
+               onkeydown="if(event.key==='Enter')sendCmd()"/>
+        <button class="mic-btn" id="mic-btn" onclick="toggleMic()" title="Voice input">
+          <svg id="mic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" color="#64748b">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>
+          </svg>
+        </button>
+        <button class="send-btn" id="send-btn" onclick="sendCmd()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
+               stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="voice-status" id="voice-status"></div>
+    </div>
+
+  </div><!-- end main -->
+</div><!-- end app -->
+
+
+<script>
+  // ═══════════════════════════════════════
+  //  CONFIG — Flask backend URL
+  // ═══════════════════════════════════════
+  const API = '/api';
+
+  // ═══════════════════════════════════════
+  //  STATE
+  // ═══════════════════════════════════════
+  let currentUser  = null;
+  let sessions     = {};
+  let activeSession= null;
+  let speakTimer   = null;
+
+  // ═══════════════════════════════════════
+  //  AUTH HELPERS
+  // ═══════════════════════════════════════
+  function switchTab(t) {
+    ['login','register'].forEach(x => {
+      document.getElementById('tab-'  + x).classList.toggle('active', x === t);
+      document.getElementById('form-' + x).classList.toggle('hidden', x !== t);
+    });
+    document.getElementById('auth-msg').textContent = '';
+  }
+
+  function showMsg(m, t) {
+    const e = document.getElementById('auth-msg');
+    e.textContent = m;
+    e.className   = 'auth-msg ' + t;
+  }
+
+  // ═══════════════════════════════════════
+  //  LOGIN
+  // ═══════════════════════════════════════
+  async function doLogin() {
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    if (!u || !p) { showMsg('All fields required', 'error'); return; }
+
+    const btn = document.getElementById('login-btn');
+    btn.disabled    = true;
+    btn.textContent = 'Connecting...';
+
+    try {
+      const res  = await fetch(API + '/login', {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ username: u, password: p })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        currentUser = data.user;   // { id, username, email }
+        launchApp();
+      } else {
+        showMsg(data.message || 'Login failed', 'error');
+      }
+    } catch (err) {
+      showMsg('Cannot reach server. Is "python app.py" running?', 'error');
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'Initialize Session →';
+  }
+
+  // ═══════════════════════════════════════
+  //  REGISTER
+  // ═══════════════════════════════════════
+  async function doRegister() {
+    const u = document.getElementById('reg-user').value.trim();
+    const e = document.getElementById('reg-email').value.trim();
+    const p = document.getElementById('reg-pass').value;
+    if (!u || !e || !p) { showMsg('All fields required', 'error'); return; }
+
+    const btn = document.getElementById('reg-btn');
+    btn.disabled    = true;
+    btn.textContent = 'Creating...';
+
+    try {
+      const res  = await fetch(API + '/register', {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ username: u, email: e, password: p })
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        showMsg('Account created — logging in...', 'success');
+        // auto-login after register
+        document.getElementById('login-user').value = u;
+        document.getElementById('login-pass').value = p;
+        setTimeout(() => { switchTab('login'); doLogin(); }, 800);
+      } else {
+        showMsg(data.message || 'Registration failed', 'error');
+      }
+    } catch (err) {
+      showMsg('Cannot reach server. Is "python app.py" running?', 'error');
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'Create Account →';
+  }
+
+  // ═══════════════════════════════════════
+  //  LOGOUT
+  // ═══════════════════════════════════════
+  function doLogout() {
+    currentUser   = null;
+    sessions      = {};
+    activeSession = null;
+    stopSpeak();
+    document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('main-app').style.display    = 'none';
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('auth-msg').textContent = '';
+  }
+
+  // ═══════════════════════════════════════
+  //  LAUNCH MAIN APP
+  // ═══════════════════════════════════════
+  function launchApp() {
+    document.getElementById('auth-screen').style.display = 'none';
+    document.getElementById('main-app').style.display    = 'flex';
+    document.getElementById('sidebar-uname').textContent = currentUser.username;
+    document.getElementById('user-avatar').textContent   =
+      currentUser.username.substring(0, 2).toUpperCase();
+    newSession();
+    speak('Hello, ' + currentUser.username + '! All systems are online and ready.');
+  }
+
+  // ═══════════════════════════════════════
+  //  SESSIONS (sidebar)
+  // ═══════════════════════════════════════
+  function newSession() {
+    const id = 's_' + Date.now();
+    sessions[id] = {
+      title: 'New session',
+      time : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    activeSession = id;
+    renderList();
+  }
+
+  function renderList() {
+    const el   = document.getElementById('chat-list');
+    el.innerHTML = '';
+    const keys = Object.keys(sessions).reverse();
+    if (!keys.length) {
+      el.innerHTML =
+        '<div style="padding:12px 16px;font-size:12px;color:var(--text-dim);">No sessions yet</div>';
+      return;
+    }
+    keys.forEach(id => {
+      const s = sessions[id];
+      const d = document.createElement('div');
+      d.className  = 'chat-item' + (id === activeSession ? ' active' : '');
+      d.textContent= s.title;
+      d.onclick    = () => { activeSession = id; renderList(); };
+      el.appendChild(d);
+    });
+  }
+
+  // ═══════════════════════════════════════
+  //  LOAD HISTORY FROM DB
+  // ═══════════════════════════════════════
+  async function loadHistory() {
+    if (!currentUser) return;
+    speak('Loading your command history...');
+    try {
+      const res  = await fetch(API + '/history/' + currentUser.id + '?limit=20');
+      const data = await res.json();
+      if (data.success && data.history.length > 0) {
+        data.history.forEach(item => {
+          const id = 'h_' + Math.random().toString(36).slice(2);
+          sessions[id] = {
+            title: item.command.length > 26
+              ? item.command.slice(0, 26) + '…'
+              : item.command,
+            time: item.timestamp ? String(item.timestamp).slice(11, 16) : ''
+          };
+        });
+        renderList();
+        speak('Loaded ' + data.history.length + ' commands from your history.');
+      } else {
+        speak('No history found yet. Start chatting!');
+      }
+    } catch (err) {
+      speak('Could not load history — server may be offline.');
+    }
+  }
+
+  // ═══════════════════════════════════════
+  //  SEND COMMAND  ← main fixed function
+  // ═══════════════════════════════════════
+  async function sendCmd() {
+    const inp = document.getElementById('cmd-inp');
+    const cmd = inp.value.trim();
+    if (!cmd) return;
+
+    // clear input & disable while waiting
+    inp.value    = '';
+    inp.disabled = true;
+    const btn    = document.getElementById('send-btn');
+    btn.disabled = true;
+    btn.innerHTML= '<div class="spinner"></div>';
+
+    speak('Processing your command...');
+
+    try {
+      const res  = await fetch(API + '/command', {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ user_id: currentUser.id, command: cmd })
+      });
+      const data = await res.json();
+
+      // ← THIS is the fix: always a plain string, never a Promise
+      const response = data.success
+        ? String(data.response)
+        : 'Error: ' + String(data.message);
+
+      // update sidebar title with first command
+      if (!activeSession) newSession();
+      if (sessions[activeSession].title === 'New session')
+        sessions[activeSession].title =
+          cmd.length > 26 ? cmd.slice(0, 26) + '…' : cmd;
+      renderList();
+
+      // Client-side fallback: if backend returns stub message, handle locally
+      const stubMsg = 'received and logged. Processing via Raven engine';
+      if (response.includes(stubMsg)) {
+        const localResp = handleLocally(cmd);
+        speak(localResp);
+      } else {
+        speak(response);
+      }
+
+    } catch (err) {
+      speak('Server offline. Make sure "python app.py" is running.');
+    }
+
+    // re-enable input
+    inp.disabled = false;
+    btn.disabled = false;
+    btn.innerHTML =
+      `<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round">
+         <line x1="22" y1="2" x2="11" y2="13"/>
+         <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+       </svg>`;
+    inp.focus();
+  }
+
+  // ═══════════════════════════════════════
+  //  CLIENT-SIDE COMMAND HANDLER (fallback)
+  // ═══════════════════════════════════════
+  function handleLocally(cmd) {
+    const c = cmd.toLowerCase().trim();
+    if (/^(hello|hi|hey)/.test(c)) return 'Hello! All systems are fully operational.';
+    if (/time/.test(c)) {
+      const t = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      return 'The current time is ' + t + '.';
+    }
+    if (/date|today/.test(c)) {
+      const d = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+      return 'Today is ' + d + '.';
+    }
+    if (/youtube/.test(c)) {
+      window.open('https://www.youtube.com','_blank');
+      return 'Opening YouTube for you! 🎬';
+    }
+    if (/play music|play song|music/.test(c)) {
+      const songs = ['https://www.youtube.com/watch?v=oafxkMv4xnc','https://www.youtube.com/watch?v=KGx_FZY9cQw','https://www.youtube.com/watch?v=dIVpJEKYNq4'];
+      window.open(songs[Math.floor(Math.random()*songs.length)],'_blank');
+      return 'Playing music for you! 🎵';
+    }
+    if (/google|search/.test(c)) {
+      const q = c.replace(/google|search|for/g,'').trim();
+      if (q) { window.open('https://www.google.com/search?q='+encodeURIComponent(q),'_blank'); return 'Searching Google for: ' + q + ' 🔍'; }
+      return 'What would you like me to search?';
+    }
+    if (/wikipedia|wiki/.test(c)) {
+      const q = c.replace(/wikipedia|wiki|search|about/g,'').trim();
+      if (q) { window.open('https://en.wikipedia.org/wiki/Special:Search?search='+encodeURIComponent(q),'_blank'); return 'Opening Wikipedia for: ' + q; }
+    }
+    if (/open gmail/.test(c)) { window.open('https://mail.google.com','_blank'); return 'Opening Gmail! 📧'; }
+    if (/open maps/.test(c)) { window.open('https://maps.google.com','_blank'); return 'Opening Google Maps! 🗺️'; }
+    if (/open spotify/.test(c)) { window.open('https://open.spotify.com','_blank'); return 'Opening Spotify! 🎧'; }
+    if (/open whatsapp/.test(c)) { window.open('https://web.whatsapp.com','_blank'); return 'Opening WhatsApp Web! 💬'; }
+    if (/open github/.test(c)) { window.open('https://github.com','_blank'); return 'Opening GitHub! 💻'; }
+    if (/open instagram/.test(c)) { window.open('https://instagram.com','_blank'); return 'Opening Instagram! 📸'; }
+    if (/image|photo|picture|generate|draw/.test(c)) {
+      const q = c.replace(/generate|create|draw|make|image|photo|picture|of|a|an|the/g,' ').trim();
+      const url = 'https://image.pollinations.ai/prompt/'+encodeURIComponent(q||c)+'?width=1024&height=1024&enhance=true&nologo=true';
+      window.open(url,'_blank');
+      return 'Generating image of "' + (q||c) + '"! Opening in browser 🎨';
+    }
+    if (/joke/.test(c)) return 'Why do robots never panic? Nerves of steel. 🤖';
+    if (/name/.test(c)) return 'I am R.A.V.E.N — Responsive Adaptive Virtual Engineered Navigator.';
+    if (/status|system/.test(c)) return 'All systems nominal — CPU online · Memory stable · Network active ✅';
+    if (/weather/.test(c)) { window.open('https://www.google.com/search?q=weather+today','_blank'); return 'Opening current weather for you! 🌤️'; }
+    if (/bye|exit|goodbye/.test(c)) return 'Goodbye! Raven standing by. 👋';
+    return 'I heard you! Please restart the Flask backend (python app.py) to unlock full AI responses. For now, try: time, date, open youtube, play music, search [topic], or open [app].';
+  }
+
+  // ═══════════════════════════════════════
+  //  ROBOT SPEECH — TTS + ANIMATION
+  // ═══════════════════════════════════════
+  function speak(text) {
+    const msg = (text !== null && text !== undefined) ? String(text) : '...';
+    document.getElementById('speech-box').textContent = msg;
+    startSpeak();
+    if (speakTimer) clearTimeout(speakTimer);
+    speakTimer = setTimeout(stopSpeak, Math.max(1800, msg.length * 50));
+
+    // ── Browser Text-to-Speech ──
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(msg);
+      utter.rate   = 0.95;
+      utter.pitch  = 0.85;
+      utter.volume = 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const preferred = voices.find(v => v.name.toLowerCase().includes('google uk english male'))
+                     || voices.find(v => /daniel|mark|james|david/i.test(v.name))
+                     || voices.find(v => v.name.toLowerCase().includes('male'))
+                     || voices.find(v => v.lang === 'en-GB')
+                     || voices.find(v => v.lang === 'en-US')
+                     || voices[0];
+      if (preferred) utter.voice = preferred;
+      utter.onend = () => stopSpeak();
+      window.speechSynthesis.speak(utter);
+    }
+  }
+
+  // ═══════════════════════════════════════
+  //  VOICE INPUT — Web Speech Recognition
+  // ═══════════════════════════════════════
+  let recognition = null;
+  let isListening = false;
+
+  function toggleMic() {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      setVoiceStatus('❌ Voice input not supported in this browser. Use Chrome.', true);
+      return;
+    }
+    if (isListening) {
+      stopMic();
+    } else {
+      startMic();
+    }
+  }
+
+  function startMic() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';   // works for Indian English + some Hindi
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
+
+    recognition.onstart = () => {
+      isListening = true;
+      document.getElementById('mic-btn').classList.add('listening');
+      document.getElementById('mic-icon').setAttribute('color', '#ef4444');
+      document.getElementById('cmd-inp').placeholder = '🎙️ Listening... speak now';
+      setVoiceStatus('🎙️ Listening — speak your command...');
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map(r => r[0].transcript).join('');
+      document.getElementById('cmd-inp').value = transcript;
+      if (event.results[0].isFinal) {
+        setVoiceStatus('✅ Got it! Sending...');
+        setTimeout(() => sendCmd(), 300);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      const msgs = {
+        'no-speech':       '🔇 No speech detected. Try again.',
+        'audio-capture':   '🎤 No microphone found.',
+        'not-allowed':     '🚫 Microphone permission denied. Allow it in browser settings.',
+        'network':         '🌐 Network error during recognition.',
+      };
+      setVoiceStatus(msgs[event.error] || '⚠️ Error: ' + event.error, true);
+      stopMic();
+    };
+
+    recognition.onend = () => {
+      stopMic();
+    };
+
+    recognition.start();
+  }
+
+  function stopMic() {
+    isListening = false;
+    if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+    document.getElementById('mic-btn').classList.remove('listening');
+    document.getElementById('mic-icon').setAttribute('color', '#64748b');
+    document.getElementById('cmd-inp').placeholder = 'Ask anything...';
+    setTimeout(() => setVoiceStatus(''), 2000);
+  }
+
+  function setVoiceStatus(msg, isErr) {
+    const el = document.getElementById('voice-status');
+    el.textContent = msg;
+    el.style.color = isErr ? '#f87171' : 'var(--text-muted)';
+  }
+
+  function startSpeak() {
+    document.getElementById('idle-mouth').style.opacity  = '0';
+    document.getElementById('speak-mouth').style.opacity = '1';
+    [
+      ['sb1', 'sb1', 0.00],
+      ['sb2', 'sb2', 0.07],
+      ['sb3', 'sb3', 0.12],
+      ['sb4', 'sb2', 0.05],
+      ['sb5', 'sb1', 0.10]
+    ].forEach(([id, anim, delay]) => {
+      document.getElementById(id).style.animation =
+        anim + ' .28s ' + delay + 's ease-in-out infinite';
+    });
+  }
+
+  function stopSpeak() {
+    document.getElementById('idle-mouth').style.opacity  = '1';
+    document.getElementById('speak-mouth').style.opacity = '0';
+    ['sb1','sb2','sb3','sb4','sb5'].forEach(id => {
+      document.getElementById(id).style.animation = 'none';
+    });
+  }
+  // Preload voices (Chrome needs this)
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.getVoices(); };
+  }
+</script>
+</body>
+</html>

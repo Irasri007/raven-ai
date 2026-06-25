@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>R.A.V.E.N</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --bg:rgba(10,14,26,0.96);--border:rgba(0,212,255,0.18);
+      --accent:#00d4ff;--accent2:#7c3aed;--text:#e2e8f0;
+      --muted:#64748b;--dim:#334155;--input:#111827;
+    }
+    html,body{width:100%;height:100%;background:transparent;overflow:hidden;
+      font-family:'Segoe UI',system-ui,sans-serif;color:var(--text);user-select:none;}
+
+    /* ── MAIN LAYOUT: panel left, robot right ── */
+    #widget{
+      position:fixed;bottom:0;right:0;
+      width:300px;height:480px;
+      display:flex;flex-direction:row;align-items:flex-end;
+      transition:width .3s ease,height .3s ease;
+    }
+
+    /* ── CHAT PANEL (left, hidden by default) ── */
+    #chat-panel{
+      flex:1;height:100%;
+      background:var(--bg);
+      border:1px solid var(--border);
+      border-right:none;
+      border-radius:16px 0 0 16px;
+      display:flex;flex-direction:column;overflow:hidden;
+      opacity:0;transform:translateX(20px);pointer-events:none;
+      transition:opacity .25s,transform .25s;
+    }
+    #chat-panel.open{opacity:1;transform:translateX(0);pointer-events:all;}
+
+    .p-header{
+      display:flex;align-items:center;justify-content:space-between;
+      padding:10px 14px;border-bottom:1px solid var(--border);
+      background:rgba(0,212,255,0.04);flex-shrink:0;
+    }
+    .p-title{font-size:12px;font-weight:700;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    .p-x{background:none;border:none;color:var(--muted);cursor:pointer;
+      font-size:15px;padding:2px 6px;border-radius:4px;}
+    .p-x:hover{color:#f87171;background:rgba(248,113,113,0.1);}
+
+    /* Auth */
+    #auth-area{flex:1;display:flex;align-items:center;justify-content:center;padding:16px;overflow-y:auto;}
+    .auth-logo{text-align:center;margin-bottom:12px;}
+    .auth-logo .lt{font-size:18px;font-weight:700;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+    .auth-logo .ls{font-size:8px;color:var(--muted);letter-spacing:1.5px;margin-top:2px;}
+    .auth-tabs{display:flex;margin-bottom:10px;background:rgba(255,255,255,0.04);border-radius:7px;padding:3px;}
+    .auth-tab{flex:1;padding:5px;text-align:center;cursor:pointer;font-size:11px;
+      color:var(--muted);border:none;background:none;border-radius:5px;font-family:inherit;transition:all .2s;}
+    .auth-tab.active{background:rgba(0,212,255,0.12);color:var(--accent);}
+    .af{margin-bottom:7px;}
+    .af label{display:block;font-size:10px;color:var(--muted);margin-bottom:3px;}
+    .af input{width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border);
+      color:var(--text);padding:7px 10px;border-radius:7px;font-size:12px;outline:none;
+      font-family:inherit;transition:border-color .2s;}
+    .af input:focus{border-color:rgba(0,212,255,0.4);}
+    .auth-btn{width:100%;padding:8px;
+      background:linear-gradient(135deg,var(--accent2),var(--accent));
+      border:none;color:white;border-radius:7px;cursor:pointer;
+      font-size:12px;font-weight:600;margin-top:3px;font-family:inherit;transition:opacity .2s;}
+    .auth-btn:hover{opacity:.88;}.auth-btn:disabled{opacity:.5;cursor:not-allowed;}
+    .auth-msg{font-size:10px;text-align:center;margin-top:5px;min-height:13px;}
+    .auth-msg.error{color:#f87171;}.auth-msg.success{color:#4ade80;}
+    .hidden{display:none!important;}
+
+    /* Main chat */
+    #main-area{display:none;flex-direction:column;flex:1;overflow:hidden;}
+    #main-area.on{display:flex;}
+    .h-header{padding:6px 12px 3px;font-size:9px;color:var(--dim);
+      letter-spacing:.5px;font-weight:600;text-transform:uppercase;
+      display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+    .h-header button{background:none;border:none;color:var(--muted);font-size:10px;cursor:pointer;font-family:inherit;}
+    .h-header button:hover{color:var(--accent);}
+    .h-list{overflow-y:auto;padding:0 6px;max-height:80px;flex-shrink:0;}
+    .h-list::-webkit-scrollbar{width:2px;}
+    .h-list::-webkit-scrollbar-thumb{background:var(--border);}
+    .h-item{padding:5px 8px;border-radius:5px;cursor:pointer;font-size:11px;color:var(--muted);
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .15s;}
+    .h-item:hover{background:rgba(255,255,255,0.05);color:var(--text);}
+    .messages{flex:1;overflow-y:auto;padding:8px 10px;display:flex;flex-direction:column;gap:6px;}
+    .messages::-webkit-scrollbar{width:2px;}
+    .messages::-webkit-scrollbar-thumb{background:var(--border);}
+    .msg{max-width:90%;padding:7px 11px;border-radius:10px;font-size:11px;line-height:1.5;}
+    .msg.user{align-self:flex-end;
+      background:linear-gradient(135deg,var(--accent2),var(--accent));color:white;
+      border-radius:10px 10px 2px 10px;}
+    .msg.raven{align-self:flex-start;background:rgba(0,212,255,0.07);
+      border:1px solid var(--border);color:var(--text);border-radius:10px 10px 10px 2px;}
+    .user-bar{display:flex;align-items:center;gap:7px;padding:6px 10px;
+      border-top:1px solid var(--border);background:rgba(0,0,0,0.2);flex-shrink:0;}
+    .avatar{width:24px;height:24px;border-radius:50%;
+      background:linear-gradient(135deg,var(--accent2),var(--accent));
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;font-weight:700;color:white;flex-shrink:0;}
+    .uname{font-size:11px;font-weight:500;flex:1;}
+    .logout-btn{background:none;border:none;color:var(--muted);cursor:pointer;
+      font-size:10px;padding:3px 5px;border-radius:4px;}
+    .logout-btn:hover{color:#f87171;}
+    .input-bar{padding:8px 10px 10px;border-top:1px solid var(--border);flex-shrink:0;}
+    .input-wrap{display:flex;align-items:center;gap:5px;background:var(--input);
+      border:1px solid var(--border);border-radius:9px;padding:3px 5px 3px 10px;
+      transition:border-color .2s;}
+    .input-wrap:focus-within{border-color:rgba(0,212,255,0.4);}
+    .cmd-inp{flex:1;background:none;border:none;color:var(--text);font-size:12px;
+      outline:none;padding:4px 0;font-family:inherit;}
+    .cmd-inp::placeholder{color:var(--dim);}
+    .cmd-inp:disabled{opacity:.5;}
+    .ibtn{width:28px;height:28px;border-radius:6px;border:none;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .2s;}
+    .ibtn svg{width:13px;height:13px;}
+    .mic-ibtn{background:rgba(255,255,255,0.06);border:1px solid var(--border)!important;}
+    .mic-ibtn:hover{background:rgba(0,212,255,0.12);border-color:rgba(0,212,255,0.3)!important;}
+    .mic-ibtn.on{background:rgba(239,68,68,0.2);border-color:#ef4444!important;
+      animation:micPulse 1s infinite;}
+    .send-ibtn{background:linear-gradient(135deg,var(--accent2),var(--accent));}
+    .send-ibtn:hover{opacity:.85;}.send-ibtn:disabled{opacity:.4;cursor:not-allowed;}
+    .vstatus{font-size:9px;color:var(--muted);margin-top:3px;min-height:11px;padding-left:3px;}
+    .spinner{width:10px;height:10px;border:2px solid rgba(255,255,255,0.3);
+      border-top-color:white;border-radius:50%;animation:spin .7s linear infinite;}
+
+    /* ── ROBOT COLUMN ── */
+    #robot-col{
+      width:300px;flex-shrink:0;height:480px;
+      display:flex;flex-direction:column;align-items:center;justify-content:flex-end;
+      padding-bottom:10px;position:relative;
+    }
+
+    /* Drag strip at top */
+    #drag-strip{
+      position:absolute;top:0;left:0;right:0;height:32px;
+      cursor:move;
+      display:flex;align-items:center;justify-content:flex-end;
+      padding-right:8px;gap:5px;
+      background:transparent;
+    }
+    .wbtn{width:12px;height:12px;border-radius:50%;border:none;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;transition:filter .15s;}
+    .wbtn:hover{filter:brightness(1.3);}
+    .wbtn-g{background:#28c840;}
+    .wbtn-y{background:#ffbd2e;}
+    .wbtn-r{background:#ff5f57;}
+
+    /* Toggle chat button */
+    #chat-toggle{
+      position:absolute;top:6px;left:8px;
+      width:26px;height:26px;border-radius:7px;
+      background:rgba(0,212,255,0.1);border:1px solid var(--border);
+      color:var(--accent);cursor:pointer;font-size:13px;
+      display:flex;align-items:center;justify-content:center;transition:all .2s;
+      z-index:10;
+    }
+    #chat-toggle:hover{background:rgba(0,212,255,0.2);}
+
+    /* MIC BUTTON ON ROBOT */
+    #robot-mic{
+      position:absolute;
+      bottom:200px;         /* sits on robot's chest area */
+      left:50%;
+      transform:translateX(-50%);
+      width:42px;height:42px;border-radius:50%;
+      background:rgba(10,14,26,0.85);
+      border:2px solid rgba(0,212,255,0.4);
+      cursor:pointer;
+      display:flex;align-items:center;justify-content:center;
+      transition:all .2s;z-index:10;
+      box-shadow:0 0 12px rgba(0,212,255,0.2);
+    }
+    #robot-mic:hover{background:rgba(0,212,255,0.15);border-color:var(--accent);
+      box-shadow:0 0 18px rgba(0,212,255,0.35);}
+    #robot-mic.on{background:rgba(239,68,68,0.2);border-color:#ef4444;
+      animation:micPulse 1s infinite;box-shadow:0 0 18px rgba(239,68,68,0.4);}
+    #robot-mic svg{width:18px;height:18px;}
+
+    /* Mic status above robot */
+    #mic-status{
+      font-size:10px;color:var(--accent);text-align:center;
+      min-height:14px;margin-bottom:4px;letter-spacing:.3px;
+      text-shadow:0 0 8px rgba(0,212,255,0.5);
+    }
+
+    /* Glow ring */
+    .glow{position:absolute;bottom:100px;width:160px;height:160px;border-radius:50%;
+      background:radial-gradient(circle,rgba(0,212,255,0.07) 0%,transparent 70%);
+      pointer-events:none;animation:glowP 3s ease-in-out infinite;}
+
+    /* Speech bubble */
+    #speech-box{
+      background:rgba(10,14,26,0.95);border:1px solid rgba(0,212,255,0.25);
+      border-radius:11px;padding:9px 14px;max-width:260px;min-width:140px;
+      text-align:center;font-size:11px;color:rgba(0,212,255,0.95);
+      letter-spacing:.3px;line-height:1.5;position:relative;margin-bottom:8px;z-index:2;
+    }
+    #speech-box::after{content:'';position:absolute;bottom:-6px;left:50%;
+      transform:translateX(-50%);border:5px solid transparent;
+      border-top-color:rgba(0,212,255,0.25);}
+
+    /* Robot SVG */
+    #robot{animation:float 3.2s ease-in-out infinite;position:relative;z-index:2;}
+
+    @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+    @keyframes blinkEye{0%,85%,100%{transform:scaleY(1)}90%{transform:scaleY(.08)}}
+    @keyframes wave{0%,100%{transform:rotate(0deg)}25%{transform:rotate(-22deg)}75%{transform:rotate(12deg)}}
+    @keyframes sb1{0%,100%{transform:scaleY(.25)}50%{transform:scaleY(1)}}
+    @keyframes sb2{0%,100%{transform:scaleY(.4)}50%{transform:scaleY(1.3)}}
+    @keyframes sb3{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(.95)}}
+    @keyframes glow{0%,100%{opacity:.55}50%{opacity:1}}
+    @keyframes glowP{0%,100%{opacity:.6;transform:scale(1)}50%{opacity:1;transform:scale(1.08)}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes micPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0.5)}50%{box-shadow:0 0 0 10px rgba(239,68,68,0)}}
+  </style>
+</head>
+<body>
+<div id="widget">
+
+  <!-- ══ LEFT: CHAT PANEL ══ -->
+  <div id="chat-panel">
+    <div class="p-header">
+      <span class="p-title">⬡ R.A.V.E.N</span>
+      <!-- X only hides panel, does NOT close robot -->
+      <button class="p-x" onclick="closePanel()">✕</button>
+    </div>
+
+    <!-- AUTH -->
+    <div id="auth-area">
+      <div style="width:100%">
+        <div class="auth-logo">
+          <div class="lt">R.A.V.E.N</div>
+          <div class="ls">RESPONSIVE ADAPTIVE VIRTUAL ENGINEERED NAVIGATOR</div>
+        </div>
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login"    onclick="switchTab('login')">Login</button>
+          <button class="auth-tab"        id="tab-register" onclick="switchTab('register')">Register</button>
+        </div>
+        <div id="form-login">
+          <div class="af"><label>Username</label>
+            <input type="text" id="login-user" placeholder="Enter username" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+          <div class="af"><label>Password</label>
+            <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+          <button class="auth-btn" id="login-btn" onclick="doLogin()">Initialize Session →</button>
+        </div>
+        <div id="form-register" class="hidden">
+          <div class="af"><label>Username</label>
+            <input type="text" id="reg-user" placeholder="Choose username" onkeydown="if(event.key==='Enter')doRegister()"/></div>
+          <div class="af"><label>Email</label>
+            <input type="email" id="reg-email" placeholder="you@email.com" onkeydown="if(event.key==='Enter')doRegister()"/></div>
+          <div class="af"><label>Password</label>
+            <input type="password" id="reg-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doRegister()"/></div>
+          <button class="auth-btn" id="reg-btn" onclick="doRegister()">Create Account →</button>
+        </div>
+        <div class="auth-msg" id="auth-msg"></div>
+      </div>
+    </div>
+
+    <!-- MAIN CHAT -->
+    <div id="main-area">
+      <div class="h-header">Sessions
+        <button onclick="loadHistory()">↺ Load</button>
+      </div>
+      <div class="h-list" id="h-list"></div>
+      <div class="messages" id="messages"></div>
+      <div class="user-bar">
+        <div class="avatar" id="user-avatar">RV</div>
+        <span class="uname" id="uname">User</span>
+        <button class="logout-btn" onclick="doLogout()">Sign out</button>
+      </div>
+      <div class="input-bar">
+        <div class="input-wrap">
+          <input class="cmd-inp" id="cmd-inp" placeholder="Ask Raven..."
+                 onkeydown="if(event.key==='Enter')sendCmd()"/>
+          <button class="ibtn mic-ibtn" id="panel-mic" onclick="toggleMic('panel')" title="Voice">
+            <svg id="panel-mic-icon" viewBox="0 0 24 24" fill="none" stroke="#64748b"
+                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="2" width="6" height="12" rx="3"/>
+              <path d="M5 10a7 7 0 0 0 14 0"/>
+              <line x1="12" y1="19" x2="12" y2="22"/>
+              <line x1="8"  y1="22" x2="16" y2="22"/>
+            </svg>
+          </button>
+          <button class="ibtn send-ibtn" id="send-btn" onclick="sendCmd()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </button>
+        </div>
+        <div class="vstatus" id="vstatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT: ROBOT ══ -->
+  <div id="robot-col">
+
+    <!-- Drag strip -->
+    <div id="drag-strip">
+      <button class="wbtn wbtn-g" onclick="togglePanel()" title="Chat">●</button>
+      <button class="wbtn wbtn-y" onclick="" title="Always on screen" style="cursor:default;">●</button>
+      <button class="wbtn wbtn-r" onclick="quitApp()"    title="Quit">●</button>
+    </div>
+
+    <!-- Chat toggle -->
+    <button id="chat-toggle" onclick="togglePanel()" title="Open chat">▶</button>
+
+    <!-- Glow -->
+    <div class="glow"></div>
+
+    <!-- Speech bubble -->
+    <div id="speech-box">SYSTEMS ONLINE. AWAITING COMMAND.</div>
+
+    <!-- Mic status text -->
+    <div id="mic-status"></div>
+
+    <!-- Robot SVG -->
+    <svg id="robot" width="170" height="204" viewBox="0 0 210 252" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="hg" cx="38%" cy="30%" r="65%">
+          <stop offset="0%"   stop-color="#ddeeff"/><stop offset="100%" stop-color="#8ab4dc"/></radialGradient>
+        <radialGradient id="bg2" cx="38%" cy="28%" r="65%">
+          <stop offset="0%"   stop-color="#d0e8ff"/><stop offset="100%" stop-color="#7aa8d0"/></radialGradient>
+        <radialGradient id="faceG" cx="40%" cy="28%" r="62%">
+          <stop offset="0%"   stop-color="#1a1f35"/><stop offset="100%" stop-color="#0a0d1a"/></radialGradient>
+        <radialGradient id="eg" cx="32%" cy="28%" r="62%">
+          <stop offset="0%"   stop-color="#66ffff"/><stop offset="100%" stop-color="#0088bb"/></radialGradient>
+        <radialGradient id="cg" cx="50%" cy="50%" r="50%">
+          <stop offset="0%"   stop-color="#00d4ff" stop-opacity=".35"/>
+          <stop offset="100%" stop-color="#7c3aed" stop-opacity="0"/></radialGradient>
+        <filter id="gl"><feGaussianBlur stdDeviation="2.5" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <ellipse cx="105" cy="20" rx="34" ry="9" fill="none" stroke="url(#eg)" stroke-width="3.5" opacity=".8"/>
+      <ellipse cx="105" cy="20" rx="34" ry="9" fill="none" stroke="white"    stroke-width="1"   opacity=".3"/>
+      <ellipse cx="105" cy="88" rx="55" ry="52" fill="url(#hg)"/>
+      <ellipse cx="86"  cy="65" rx="20" ry="13" fill="white" opacity=".2" transform="rotate(-18,86,65)"/>
+      <ellipse cx="52"  cy="88" rx="11" ry="13" fill="#5b9fd4"/>
+      <ellipse cx="54"  cy="88" rx="7.5" ry="9.5" fill="#6eb0e4"/>
+      <ellipse cx="158" cy="88" rx="11" ry="13" fill="#5b9fd4"/>
+      <ellipse cx="156" cy="88" rx="7.5" ry="9.5" fill="#6eb0e4"/>
+      <rect x="63" y="54" width="84" height="72" rx="24" fill="url(#faceG)"/>
+      <rect x="69" y="57" width="38" height="20" rx="10" fill="white" opacity=".05"/>
+      <g style="animation:blinkEye 4.5s ease-in-out infinite;transform-origin:87px 84px;">
+        <ellipse cx="87" cy="84" rx="16" ry="16" fill="url(#eg)" filter="url(#gl)"/>
+        <ellipse cx="87" cy="84" rx="10" ry="10" fill="#002233"/>
+        <ellipse cx="87" cy="84" rx="6"  ry="6"  fill="url(#eg)"/>
+        <ellipse cx="83" cy="80" rx="2.5" ry="2.5" fill="white" opacity=".75"/>
+      </g>
+      <g style="animation:blinkEye 4.5s ease-in-out infinite .12s;transform-origin:123px 84px;">
+        <ellipse cx="123" cy="84" rx="16" ry="16" fill="url(#eg)" filter="url(#gl)"/>
+        <ellipse cx="123" cy="84" rx="10" ry="10" fill="#002233"/>
+        <ellipse cx="123" cy="84" rx="6"  ry="6"  fill="url(#eg)"/>
+        <ellipse cx="119" cy="80" rx="2.5" ry="2.5" fill="white" opacity=".75"/>
+      </g>
+      <g id="idle-mouth">
+        <path d="M86 109 Q105 121 124 109" fill="none" stroke="#00ccee" stroke-width="3.2" stroke-linecap="round" opacity=".9"/>
+      </g>
+      <g id="speak-mouth" opacity="0">
+        <rect id="sb1" x="82"  y="106" width="5.5" height="13" rx="2.5" fill="#00d4ff" style="transform-origin:84.75px 112.5px;"/>
+        <rect id="sb2" x="90"  y="103" width="5.5" height="17" rx="2.5" fill="#00d4ff" style="transform-origin:92.75px 111.5px;"/>
+        <rect id="sb3" x="98"  y="100" width="5.5" height="20" rx="2.5" fill="#00d4ff" style="transform-origin:100.75px 110px;"/>
+        <rect id="sb4" x="106" y="103" width="5.5" height="17" rx="2.5" fill="#00d4ff" style="transform-origin:108.75px 111.5px;"/>
+        <rect id="sb5" x="114" y="106" width="5.5" height="13" rx="2.5" fill="#00d4ff" style="transform-origin:116.75px 112.5px;"/>
+      </g>
+      <rect x="93" y="138" width="24" height="14" rx="6" fill="#7aaac8"/>
+      <rect x="96" y="140" width="18" height="10" rx="5" fill="#8bbbd8"/>
+      <ellipse cx="105" cy="195" rx="48" ry="52" fill="url(#bg2)"/>
+      <ellipse cx="86"  cy="170" rx="15" ry="10" fill="white" opacity=".2" transform="rotate(-14,86,170)"/>
+      <circle cx="105" cy="193" r="24" fill="#3a7bd5" opacity=".9"/>
+      <circle cx="105" cy="193" r="19" fill="#2563b0"/>
+      <path d="M98 186 A10 10 0 1 1 112 200" fill="none" stroke="#00d4ff" stroke-width="2.8" stroke-linecap="round"/>
+      <polygon points="112,197 112,204 119,200" fill="#00d4ff"/>
+      <circle cx="105" cy="193" r="26" fill="url(#cg)" style="animation:glow 2.2s ease-in-out infinite;"/>
+      <circle cx="92"  cy="222" r="4.5" fill="#4a90d9" opacity=".65"/>
+      <circle cx="105" cy="226" r="4.5" fill="#4a90d9" opacity=".65"/>
+      <circle cx="118" cy="222" r="4.5" fill="#4a90d9" opacity=".65"/>
+      <g style="transform-origin:62px 160px;animation:wave 2.8s ease-in-out infinite;">
+        <ellipse cx="63" cy="168" rx="14.5" ry="23" fill="#8bbbd8" transform="rotate(-16,63,168)"/>
+        <ellipse cx="59" cy="187" rx="13"   ry="15" fill="#9dcce8" transform="rotate(-10,59,187)"/>
+        <ellipse cx="55" cy="202" rx="12"   ry="10" fill="#b8daf5"/>
+        <ellipse cx="48" cy="197" rx="5"    ry="7"  fill="#cce8ff" transform="rotate(-22,48,197)"/>
+        <ellipse cx="46" cy="205" rx="5"    ry="7"  fill="#cce8ff"/>
+        <ellipse cx="53" cy="212" rx="4.5"  ry="6"  fill="#cce8ff"/>
+        <ellipse cx="61" cy="212" rx="4.5"  ry="6"  fill="#cce8ff"/>
+      </g>
+      <ellipse cx="147" cy="168" rx="14.5" ry="23" fill="#8bbbd8" transform="rotate(16,147,168)"/>
+      <ellipse cx="151" cy="187" rx="13"   ry="15" fill="#9dcce8" transform="rotate(10,151,187)"/>
+      <ellipse cx="155" cy="202" rx="12"   ry="10" fill="#b8daf5"/>
+      <ellipse cx="89"  cy="242" rx="17" ry="13" fill="#7aaac8"/>
+      <ellipse cx="121" cy="242" rx="17" ry="13" fill="#7aaac8"/>
+      <ellipse cx="87"  cy="247" rx="20" ry="9.5" fill="#4a90d9"/>
+      <ellipse cx="123" cy="247" rx="20" ry="9.5" fill="#4a90d9"/>
+      <ellipse cx="83"  cy="244" rx="11" ry="5"   fill="#6eb0e4" opacity=".55"/>
+      <ellipse cx="119" cy="244" rx="11" ry="5"   fill="#6eb0e4" opacity=".55"/>
+      <ellipse cx="105" cy="258" rx="48" ry="7"   fill="rgba(0,100,200,0.12)"/>
+    </svg>
+
+    <!-- MIC BUTTON ON ROBOT BODY -->
+    <button id="robot-mic" onclick="toggleMic('robot')" title="Click to speak">
+      <svg id="robot-mic-icon" viewBox="0 0 24 24" fill="none" stroke="#00d4ff"
+           stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="2" width="6" height="12" rx="3"/>
+        <path d="M5 10a7 7 0 0 0 14 0"/>
+        <line x1="12" y1="19" x2="12" y2="22"/>
+        <line x1="8"  y1="22" x2="16" y2="22"/>
+      </svg>
+    </button>
+
+  </div>
+</div>
+
+<script>
+  const API = 'http://localhost:5000/api';
+  let currentUser = null, sessions = {}, activeSession = null, speakTimer = null, panelOpen = false;
+
+  // ══════════════════════════════
+  //  PANEL OPEN/CLOSE
+  //  X button only hides panel — robot stays forever
+  // ══════════════════════════════
+  function togglePanel(){ panelOpen ? closePanel() : openPanel(); }
+
+  function openPanel(){
+    panelOpen = true;
+    document.getElementById('widget').style.width  = '680px';
+    document.getElementById('widget').style.height = '520px';
+    document.getElementById('robot-col').style.height = '520px';
+    document.getElementById('chat-panel').classList.add('open');
+    document.getElementById('chat-toggle').textContent = '◀';
+    if(window.ravenBridge) window.ravenBridge.expand();
+  }
+
+  function closePanel(){
+    panelOpen = false;
+    document.getElementById('widget').style.width  = '300px';
+    document.getElementById('widget').style.height = '480px';
+    document.getElementById('robot-col').style.height = '480px';
+    document.getElementById('chat-panel').classList.remove('open');
+    document.getElementById('chat-toggle').textContent = '▶';
+    // DO NOT call ravenBridge — just hide the panel visually, Electron window stays
+  }
+
+  function minimizeWin(){ if(window.ravenBridge) window.ravenBridge.collapse(); }
+  function hideToTray(){ /* disabled — robot stays permanent */ }
+  function quitApp(){ if(window.ravenBridge) window.ravenBridge.close(); }
+
+  // ══════════════════════════════
+  //  AUTH
+  // ══════════════════════════════
+  function switchTab(t){
+    ['login','register'].forEach(x=>{
+      document.getElementById('tab-'+x).classList.toggle('active',x===t);
+      document.getElementById('form-'+x).classList.toggle('hidden',x!==t);
+    });
+    document.getElementById('auth-msg').textContent='';
+  }
+  function showMsg(m,t){ const e=document.getElementById('auth-msg'); e.textContent=m; e.className='auth-msg '+t; }
+
+  async function doLogin(){
+    const u=document.getElementById('login-user').value.trim();
+    const p=document.getElementById('login-pass').value;
+    if(!u||!p){showMsg('All fields required','error');return;}
+    const btn=document.getElementById('login-btn');
+    btn.disabled=true; btn.textContent='Connecting...';
+    try{
+      const res=await fetch(API+'/login',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:u,password:p})});
+      const d=await res.json();
+      if(d.success){currentUser=d.user;launchApp();}
+      else showMsg(d.message||'Login failed','error');
+    }catch{showMsg('Cannot reach server. Is app.py running?','error');}
+    btn.disabled=false; btn.textContent='Initialize Session →';
+  }
+
+  async function doRegister(){
+    const u=document.getElementById('reg-user').value.trim();
+    const e=document.getElementById('reg-email').value.trim();
+    const p=document.getElementById('reg-pass').value;
+    if(!u||!e||!p){showMsg('All fields required','error');return;}
+    const btn=document.getElementById('reg-btn');
+    btn.disabled=true; btn.textContent='Creating...';
+    try{
+      const res=await fetch(API+'/register',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:u,email:e,password:p})});
+      const d=await res.json();
+      if(d.success){showMsg('Account created!','success');
+        document.getElementById('login-user').value=u;
+        document.getElementById('login-pass').value=p;
+        setTimeout(()=>{switchTab('login');doLogin();},800);}
+      else showMsg(d.message||'Failed','error');
+    }catch{showMsg('Cannot reach server.','error');}
+    btn.disabled=false; btn.textContent='Create Account →';
+  }
+
+  function doLogout(){
+    currentUser=null;sessions={};activeSession=null;stopSpeak();
+    document.getElementById('auth-area').style.display='flex';
+    document.getElementById('main-area').classList.remove('on');
+    document.getElementById('messages').innerHTML='';
+    speak('SYSTEMS ONLINE. AWAITING COMMAND.');
+  }
+
+  function launchApp(){
+    document.getElementById('auth-area').style.display='none';
+    document.getElementById('main-area').classList.add('on');
+    document.getElementById('uname').textContent=currentUser.username;
+    document.getElementById('user-avatar').textContent=currentUser.username.substring(0,2).toUpperCase();
+    newSession();
+    speak('Hello '+currentUser.username+'! All systems online.');
+    addMsg('raven','Hello '+currentUser.username+'! I am R.A.V.E.N. How can I help?');
+  }
+
+  // ══════════════════════════════
+  //  SESSIONS & MESSAGES
+  // ══════════════════════════════
+  function newSession(){
+    const id='s_'+Date.now(); sessions[id]={title:'New session'}; activeSession=id; renderHist();
+  }
+  function renderHist(){
+    const el=document.getElementById('h-list'); el.innerHTML='';
+    Object.keys(sessions).reverse().forEach(id=>{
+      const d=document.createElement('div'); d.className='h-item';
+      d.textContent=sessions[id].title;
+      d.onclick=()=>{activeSession=id;renderHist();}; el.appendChild(d);
+    });
+  }
+  function addMsg(role,text){
+    const el=document.getElementById('messages');
+    const d=document.createElement('div'); d.className='msg '+role; d.textContent=text;
+    el.appendChild(d); el.scrollTop=el.scrollHeight;
+  }
+  async function loadHistory(){
+    if(!currentUser)return; speak('Loading history...');
+    try{
+      const res=await fetch(API+'/history/'+currentUser.id+'?limit=20');
+      const d=await res.json();
+      if(d.success&&d.history.length){
+        d.history.forEach(item=>{
+          const id='h_'+Math.random().toString(36).slice(2);
+          sessions[id]={title:item.command.length>24?item.command.slice(0,24)+'…':item.command};
+        }); renderHist(); speak('Loaded '+d.history.length+' commands.');
+      }else speak('No history yet.');
+    }catch{speak('Could not load history.');}
+  }
+
+  // ══════════════════════════════
+  //  SEND COMMAND
+  // ══════════════════════════════
+  async function sendCmd(){
+    const inp=document.getElementById('cmd-inp');
+    const cmd=inp.value.trim(); if(!cmd)return;
+    addMsg('user',cmd); inp.value=''; inp.disabled=true;
+    const btn=document.getElementById('send-btn');
+    btn.disabled=true; btn.innerHTML='<div class="spinner"></div>';
+    speak('Processing...');
+    try{
+      const res=await fetch(API+'/command',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({user_id:currentUser.id,command:cmd})});
+      const d=await res.json();
+      const response=d.success?String(d.response):'Error: '+String(d.message);
+      if(!activeSession)newSession();
+      if(sessions[activeSession].title==='New session')
+        sessions[activeSession].title=cmd.length>24?cmd.slice(0,24)+'…':cmd;
+      renderHist();
+      const stub='received and logged. Processing via Raven engine';
+      const final=response.includes(stub)?handleLocally(cmd):response;
+      addMsg('raven',final); speak(final);
+    }catch{
+      const err='Server offline. Make sure "python app.py" is running.';
+      addMsg('raven',err); speak(err);
+    }
+    inp.disabled=false; btn.disabled=false;
+    btn.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"
+      stroke-linecap="round" stroke-linejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13"/>
+      <polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>`;
+    inp.focus();
+  }
+
+  // ══════════════════════════════
+  //  CLIENT-SIDE FALLBACK
+  // ══════════════════════════════
+  function handleLocally(cmd){
+    const c=cmd.toLowerCase().trim();
+    if(/^(hello|hi|hey)/.test(c)) return 'Hello! All systems fully operational.';
+    if(/time/.test(c)) return 'The time is '+new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+'.';
+    if(/date|today/.test(c)) return 'Today is '+new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'})+'.';
+    if(/youtube/.test(c)){require('electron').shell.openExternal('https://www.youtube.com');return 'Opening YouTube! 🎬';}
+    if(/music|song/.test(c)){require('electron').shell.openExternal('https://www.youtube.com/watch?v=oafxkMv4xnc');return 'Playing music! 🎵';}
+    if(/google|search/.test(c)){const q=c.replace(/google|search|for/g,'').trim();require('electron').shell.openExternal('https://www.google.com/search?q='+encodeURIComponent(q));return 'Searching: '+q+' 🔍';}
+    if(/gmail/.test(c)){require('electron').shell.openExternal('https://mail.google.com');return 'Opening Gmail! 📧';}
+    if(/spotify/.test(c)){require('electron').shell.openExternal('https://open.spotify.com');return 'Opening Spotify! 🎧';}
+    if(/whatsapp/.test(c)){require('electron').shell.openExternal('https://web.whatsapp.com');return 'Opening WhatsApp! 💬';}
+    if(/weather/.test(c)){require('electron').shell.openExternal('https://www.google.com/search?q=weather+today');return 'Opening weather! 🌤️';}
+    if(/joke/.test(c)) return 'Why do robots never panic? Nerves of steel. 🤖';
+    if(/name/.test(c)) return 'I am R.A.V.E.N — Responsive Adaptive Virtual Engineered Navigator.';
+    if(/bye|exit|goodbye/.test(c)) return 'Goodbye! Raven standing by. 👋';
+    return 'Make sure Flask is running for full AI responses.';
+  }
+
+  // ══════════════════════════════
+  //  TTS + ANIMATION
+  // ══════════════════════════════
+  function speak(text){
+    const msg=String(text||'...');
+    document.getElementById('speech-box').textContent=msg;
+    startSpeak();
+    if(speakTimer)clearTimeout(speakTimer);
+    speakTimer=setTimeout(stopSpeak,Math.max(1800,msg.length*50));
+    if('speechSynthesis' in window){
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(msg);
+      u.rate=0.95;u.pitch=0.85;u.volume=1;
+      const vs=window.speechSynthesis.getVoices();
+      const pref=vs.find(v=>v.name.toLowerCase().includes('google uk english male'))
+               ||vs.find(v=>/daniel|mark|james|david/i.test(v.name))
+               ||vs.find(v=>v.lang==='en-GB')||vs.find(v=>v.lang==='en-US')||vs[0];
+      if(pref)u.voice=pref;
+      u.onend=()=>stopSpeak();
+      window.speechSynthesis.speak(u);
+    }
+  }
+  function startSpeak(){
+    document.getElementById('idle-mouth').style.opacity='0';
+    document.getElementById('speak-mouth').style.opacity='1';
+    [['sb1','sb1',0],['sb2','sb2',.07],['sb3','sb3',.12],['sb4','sb2',.05],['sb5','sb1',.10]]
+      .forEach(([id,a,d])=>{document.getElementById(id).style.animation=a+' .28s '+d+'s ease-in-out infinite';});
+  }
+  function stopSpeak(){
+    document.getElementById('idle-mouth').style.opacity='1';
+    document.getElementById('speak-mouth').style.opacity='0';
+    ['sb1','sb2','sb3','sb4','sb5'].forEach(id=>{document.getElementById(id).style.animation='none';});
+  }
+
+  // ══════════════════════════════
+  //  MIC — uses Python backend (no browser speech API needed)
+  // ══════════════════════════════
+  let isListening = false;
+  let pollTimer   = null;
+
+  function toggleMic(src){
+    isListening ? stopMic() : startMic(src);
+  }
+
+  async function startMic(src){
+    if(isListening) return;
+    try{
+      const res = await fetch(API+'/listen/start',{method:'POST'});
+      const d   = await res.json();
+      if(!d.success){ setMicStatus('⚠️ '+d.message, true); return; }
+
+      isListening = true;
+      setMicStatus('🎙️ Listening... speak now');
+      document.getElementById('robot-mic').classList.add('on');
+      document.getElementById('robot-mic-icon').setAttribute('stroke','#ef4444');
+      document.getElementById('panel-mic').classList.add('on');
+      document.getElementById('panel-mic-icon').setAttribute('stroke','#ef4444');
+      document.getElementById('cmd-inp').placeholder = '🎙️ Listening...';
+      document.getElementById('speech-box').textContent = '🎙️ Listening — speak now...';
+
+      // Poll Flask every 400ms for result
+      pollTimer = setInterval(async ()=>{
+        try{
+          const sr  = await fetch(API+'/listen/status');
+          const sd  = await sr.json();
+
+          if(sd.status === 'done' && sd.text){
+            clearInterval(pollTimer);
+            document.getElementById('cmd-inp').value = sd.text;
+            setMicStatus('✅ Heard: '+sd.text);
+            document.getElementById('speech-box').textContent = 'Heard: '+sd.text;
+            stopMicUI();
+            setTimeout(()=>sendCmd(), 400);
+          }
+          else if(sd.status === 'error'){
+            clearInterval(pollTimer);
+            setMicStatus('❌ '+sd.text, true);
+            document.getElementById('speech-box').textContent = sd.text;
+            stopMicUI();
+          }
+          else if(sd.status === 'processing'){
+            setMicStatus('⚙️ Processing...');
+          }
+        }catch(e){ clearInterval(pollTimer); stopMicUI(); }
+      }, 400);
+
+    }catch(e){
+      setMicStatus('❌ Cannot reach server', true);
+    }
+  }
+
+  function stopMic(){
+    if(pollTimer) clearInterval(pollTimer);
+    fetch(API+'/listen/stop',{method:'POST'}).catch(()=>{});
+    stopMicUI();
+    setMicStatus('');
+  }
+
+  function stopMicUI(){
+    isListening = false;
+    document.getElementById('robot-mic').classList.remove('on');
+    document.getElementById('robot-mic-icon').setAttribute('stroke','#00d4ff');
+    document.getElementById('panel-mic').classList.remove('on');
+    document.getElementById('panel-mic-icon').setAttribute('stroke','#64748b');
+    document.getElementById('cmd-inp').placeholder = 'Ask Raven...';
+    setTimeout(()=>setMicStatus(''), 3000);
+  }
+
+  function setMicStatus(msg,isErr){
+    const el=document.getElementById('mic-status');
+    el.textContent=msg;
+    el.style.color=isErr?'#f87171':'var(--accent)';
+    const vs=document.getElementById('vstatus');
+    if(vs){vs.textContent=msg;vs.style.color=isErr?'#f87171':'var(--muted)';}
+  }
+
+  // ══════════════════════════════
+  //  DRAG
+  // ══════════════════════════════
+  let dragging=false,dragOffX=0,dragOffY=0;
+  document.getElementById('drag-strip').addEventListener('mousedown',e=>{
+    if(e.button!==0)return;
+    dragging=true; dragOffX=e.screenX-window.screenX; dragOffY=e.screenY-window.screenY;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging)return;
+    if(window.ravenBridge)window.ravenBridge.drag(e.screenX-dragOffX,e.screenY-dragOffY);
+  });
+  document.addEventListener('mouseup',()=>{dragging=false;});
+
+  // Preload TTS voices
+  if('speechSynthesis' in window){
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();
+  }
+</script>
+</body>
+</html>

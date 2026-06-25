@@ -1,0 +1,26 @@
+{
+  "name": "raven-desktop",
+  "version": "1.0.0",
+  "description": "R.A.V.E.N — Always-on-top Desktop AI Assistant",
+  "main": "main.js",
+  "author": "Ira",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "appId": "com.raven.assistant",
+    "productName": "RAVEN",
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": true,
+      "shortcutName": "RAVEN"
+    }
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^24.13.3"
+  }
+}

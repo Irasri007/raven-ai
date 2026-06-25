@@ -1,0 +1,16 @@
+{
+  "devDependencies": {
+    "electron-builder": "^26.8.1"
+  },
+  "build": {
+  "appId": "com.raven.assistant",
+  "productName": "RAVEN",
+  "win": {
+    "target": "nsis",
+    "icon": "assets/icon.ico"
+  },
+  "extraResources": [
+    { "from": "../Jarvis", "to": "Jarvis" }
+  ]
+}
+}
